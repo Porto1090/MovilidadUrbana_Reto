@@ -61,10 +61,12 @@ let frameCount = 0;
 
 // Define the data object
 const data = {
-  NAgents: 500,
-  width: 100,
-  height: 100
+  mapFile: "../../public/2021_base.txt",
+  mapDict: "../../public/mapDictionary.json"
 };
+
+const width = 0;
+const height = 0;
 
 // Main function to initialize and run the application
 async function main() {
@@ -116,7 +118,10 @@ async function initAgentsModel() {
     if(response.ok){
       // Parse the response as JSON and log the message
       let result = await response.json()
+      console.log("Respuesta del init")
       console.log(result.message)
+      width = result.width;
+      height = result.height;
     }
       
   } catch (error) {
@@ -365,12 +370,14 @@ function setupWorldView(gl) {
     const projectionMatrix = twgl.m4.perspective(fov, aspect, 1, 200);
 
     // Set the target position
+    //const target = [data.width/2, 0, data.height/2];
     const target = [data.width/2, 0, data.height/2];
 
     // Set the up vector
     const up = [0, 1, 0];
 
     // Calculate the camera position
+    //const camPos = twgl.v3.create(cameraPosition.x + data.width/2, cameraPosition.y, cameraPosition.z+data.height/2)
     const camPos = twgl.v3.create(cameraPosition.x + data.width/2, cameraPosition.y, cameraPosition.z+data.height/2)
 
     // Create the camera matrix
@@ -397,21 +404,21 @@ function setupUI() {
     const posFolder = gui.addFolder('Position:')
 
     // Add a slider for the x-axis
-    posFolder.add(cameraPosition, 'x', -50, 50)
+    posFolder.add(cameraPosition, 'x', -200, 200)
         .onChange( value => {
             // Update the camera position when the slider value changes
             cameraPosition.x = value
         });
 
     // Add a slider for the y-axis
-    posFolder.add( cameraPosition, 'y', -50, 50)
+    posFolder.add( cameraPosition, 'y', -200, 200)
         .onChange( value => {
             // Update the camera position when the slider value changes
             cameraPosition.y = value
         });
 
     // Add a slider for the z-axis
-    posFolder.add( cameraPosition, 'z', -50, 50)
+    posFolder.add( cameraPosition, 'z', -200, 200)
         .onChange( value => {
             // Update the camera position when the slider value changes
             cameraPosition.z = value

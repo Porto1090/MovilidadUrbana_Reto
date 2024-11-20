@@ -1,13 +1,3 @@
-/*
- * JavaScript program to generate a 3D model of a wheel
- * The model is saved in the Wavefront OBJ format
- * The number of sides, radius, and width of the wheel can be specified as arguments
- * 
- * Do Kyu Han
- * 2024-11-06
- */
-
-//const fs = require('fs');  // Importamos el módulo de sistema de archivos
 import fs from 'fs';
 
 function loadObj(objContent) {
@@ -80,14 +70,3 @@ function loadObj(objContent) {
 }
 
 export { loadObj };
-
-// Lee el archivo generado
-const generatedObjContent = fs.readFileSync('cubo.obj', 'utf8');
-
-// Procesa el contenido usando loadObj
-const jsonResult = loadObj(generatedObjContent);
-
-// Guarda el resultado en un archivo JSON
-fs.writeFileSync('objeto.json', JSON.stringify(jsonResult, null, 2));
-
-console.log('JSON data saved to wheel_data.json');

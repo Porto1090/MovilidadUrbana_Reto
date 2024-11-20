@@ -1,50 +1,85 @@
 from mesa import Model, agent
 from mesa.time import RandomActivation
 from mesa.space import SingleGrid
-from .agent import RandomAgent, ObstacleAgent
+from .agent import CarAgent, RoadAgent, TrafficLightAgent, ObstacleAgent, BuildingAgent, DestinationAgent
+import json
 
-class RandomModel(Model):
-    """ 
-    Creates a new model with random agents.
-    Args:
-        N: Number of agents in the simulation
-        height, width: The size of the grid to model
-    """
-    def __init__(self, N, width, height):
+class TrafficModel(Model):
+    """Traffic model based on a map file"""
+    def __init__(self, map_file_path: str, map_dict_path: str):
+        super().__init__()
+        
+        with open(map_file_path, 'r') as f:
+            self.map_data = f.read().strip().split('\n')
+        
+        with open(map_dict_path, 'r') as f:
+            self.map_dictionary = json.load(f)
+        
+        # Set grid size based on map and for border
+        self.height = len(self.map_data) + 1 
+        self.width = len(self.map_data[0]) + 1
 
-        super().__init__(seed=42)
-        self.num_agents = N
-        # Multigrid is a special type of grid where each cell can contain multiple agents.
-        self.grid = SingleGrid(width, height, torus = False) 
-
-        # RandomActivation is a scheduler that activates each agent once per step, in random order.
+        self.grid = SingleGrid(self.width, self.height, False)
         self.schedule = RandomActivation(self)
         
-        self.running = True 
-
         # Creates the border of the grid
-        border = [(x,y) for y in range(height) for x in range(width) if y in [0, height-1] or x in [0, width - 1]]
+        border = [(x,y) for y in range(self.height) for x in range(self.width) if y in [0, self.height-1] or x in [0, self.width - 1]]
 
         # Add obstacles to the grid
         for i, pos in enumerate(border):
             obs = ObstacleAgent(f"o-{i+1000}",self)
             self.grid.place_agent(obs, pos)
+        
+        # Initialize map
+        self.initialize_map()
+        
+        # Add some cars
+        self.num_cars = 5 # por el momento
+        #self.add_cars()
+        
+        self.running = True
 
-        # Function to generate random positions
-        pos_gen = lambda w, h: (self.random.randrange(w), self.random.randrange(h))
+    def initialize_map(self):
+        """Initialize the map with all static agents"""
+        agent_id = 0
+        
+        # Iterate over the valid area within the border
+        for y in range(1, self.height - 1):
+            for x in range(1, self.width - 1):
+                char = self.map_data[y - 1][x - 1]
+                agent = None
+                
+                if char in self.map_dictionary:
+                    agent_type = self.map_dictionary[char]
+                    if agent_type in ["Right", "Left", "Up", "Down"]:
+                        agent = RoadAgent(f"road_{agent_id}", self, agent_type.lower())
+                    elif agent_type in ["Horizontal TrafficLight", "Vertical TrafficLight"]:
+                        orientation = "horizontal" if agent_type == "Horizontal TrafficLight" else "vertical"
+                        agent = TrafficLightAgent(f"light_{agent_id}", self, orientation)
+                    elif agent_type == "Obstacle":
+                        agent = BuildingAgent(f"build_{agent_id}", self)
+                    elif agent_type == "Destination":
+                        agent = DestinationAgent(f"dest_{agent_id}", self)
+                
+                if agent:
+                    # Colocar el agente en la posición válida dentro del borde
+                    self.grid.place_agent(agent, (x, y))
+                    self.schedule.add(agent)
+                    agent_id += 1
 
-        # Add the agent to a random empty grid cell
-        for i in range(self.num_agents):
-
-            a = RandomAgent(f"a-{i+1000}", self) 
-            self.schedule.add(a)
-
-            pos = pos_gen(self.grid.width, self.grid.height)
-
-            while (not self.grid.is_cell_empty(pos)):
-                pos = pos_gen(self.grid.width, self.grid.height)
-
-            self.grid.place_agent(a, pos)
+    def add_cars(self):
+        """Add cars to random valid starting positions"""
+        for i in range(self.num_cars):
+            car = CarAgent(f"car_{i}", self)
+            # Find valid starting position (with a direction arrow)
+            while True:
+                x = self.random.randrange(self.width)
+                y = self.random.randrange(self.height)
+                cell_contents = self.grid.get_cell_list_contents((x, y))
+                if any(isinstance(agent, RoadAgent) for agent in cell_contents):
+                    self.grid.place_agent(car, (x, y))
+                    self.schedule.add(car)
+                    break
 
     def step(self):
         '''Advance the model by one step.'''

@@ -1,8 +1,8 @@
 {
     ">" : "Right",
     "<" : "Left",
-    "S" : 15,
-    "s" : 7,
+    "S" : "Horizontal TrafficLight",
+    "s" : "Vertical TrafficLight",
     "#" : "Obstacle",
     "v" : "Down",
     "^" : "Up",
