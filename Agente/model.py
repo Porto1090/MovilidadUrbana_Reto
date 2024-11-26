@@ -3,7 +3,7 @@ from mesa import Model
 from mesa.time import RandomActivation
 from mesa.space import MultiGrid  # Cambiado de SingleGrid a MultiGrid
 from agent import (CarAgent, RoadAgent, TrafficLightAgent, 
-                  ObstacleAgent, BuildingAgent, DestinationAgent)
+                 BuildingAgent, DestinationAgent)
 import json
 import random
 
@@ -29,8 +29,6 @@ class TrafficModel(Model):
         # Tracking variables
         self.step_count = 0
         self.cars_created = 0
-        self.max_cars = 50
-        self.max_concurrent_cars = 10
         self.spawn_frequency = 10
         self.total_wait_time = 0
         self.wait_time_counts = 0
@@ -42,6 +40,12 @@ class TrafficModel(Model):
         self.traffic_lights = []
         self.road_cells = {}
         
+        # Traffic light groups for controlling them together
+        self.traffic_light_groups = {
+            "horizontal": [],
+            "vertical": []
+        }
+
         # Initialize the map
         self.initialize_map()
         self.running = True
@@ -72,8 +76,8 @@ class TrafficModel(Model):
                         self.spawn_points.append((x, y))
                 
                 elif char == '#':
-                    obstacle = ObstacleAgent(f"obstacle_{agent_id}", self)
-                    self.place_agent(obstacle, x, y)
+                    building = BuildingAgent(f"building_{agent_id}", self)
+                    self.place_agent(building, x, y)
                     agent_id += 1
                 
                 elif char in ['S', 's']:
@@ -95,6 +99,8 @@ class TrafficModel(Model):
                     orientation = "horizontal" if char == 'S' else "vertical"
                     traffic_light = TrafficLightAgent(f"light_{agent_id}", self, orientation)
                     self.traffic_lights.append(traffic_light)
+                    # Agregar al grupo correspondiente
+                    self.traffic_light_groups[orientation].append(traffic_light)
                     self.place_agent(traffic_light, x, y)
                     agent_id += 1
                 
@@ -105,30 +111,30 @@ class TrafficModel(Model):
                     agent_id += 1
 
     def create_border(self):
-        """Creates obstacles around the border of the grid"""
+        """Creates building around the border of the grid"""
         # Create top and bottom borders
         for x in range(self.width):
             # Top border
-            obstacle = ObstacleAgent(f"border_top_{x}", self)
-            self.grid.place_agent(obstacle, (x, 0))
-            self.schedule.add(obstacle)
+            building = BuildingAgent(f"border_top_{x}", self)
+            self.grid.place_agent(building, (x, 0))
+            self.schedule.add(building)
             
             # Bottom border
-            obstacle = ObstacleAgent(f"border_bottom_{x}", self)
-            self.grid.place_agent(obstacle, (x, self.height - 1))
-            self.schedule.add(obstacle)
+            building = BuildingAgent(f"border_bottom_{x}", self)
+            self.grid.place_agent(building, (x, self.height - 1))
+            self.schedule.add(building)
 
         # Create left and right borders (excluding corners already placed)
         for y in range(1, self.height - 1):
             # Left border
-            obstacle = ObstacleAgent(f"border_left_{y}", self)
-            self.grid.place_agent(obstacle, (0, y))
-            self.schedule.add(obstacle)
+            building = BuildingAgent(f"border_left_{y}", self)
+            self.grid.place_agent(building, (0, y))
+            self.schedule.add(building)
             
             # Right border
-            obstacle = ObstacleAgent(f"border_right_{y}", self)
-            self.grid.place_agent(obstacle, (self.width - 1, y))
-            self.schedule.add(obstacle)
+            building = BuildingAgent(f"border_right_{y}", self)
+            self.grid.place_agent(building, (self.width - 1, y))
+            self.schedule.add(building)
 
     def place_agent(self, agent, x, y):
         """Helper method to place agent and add to scheduler"""
@@ -151,26 +157,34 @@ class TrafficModel(Model):
         # Check if position is already occupied by a car
         cell_contents = self.grid.get_cell_list_contents(pos)
         return not any(isinstance(agent, CarAgent) for agent in cell_contents)
-
+    
     def add_car(self):
         """Try to add a new car at a valid spawn point"""
-        if len(self.active_cars) >= self.max_concurrent_cars or self.cars_created >= self.max_cars:
-            if self.cars_created >= self.max_cars and not self.active_cars:
-                self.running = False
-            return False
+        # Obtener puntos de spawn válidos
+
+        corner_spawns = [
+            (0, 0),                    # Esquina inferior izquierda
+            (0, self.height - 1),      # Esquina superior izquierda
+            (self.width - 1, 0),       # Esquina inferior derecha
+            (self.width - 1, self.height - 1)  # Esquina superior derecha
+        ]
+
+        cars_added = 0
+    
+        # Intentar agregar un carro en cada esquina
+        for spawn_point in corner_spawns:
+            if self.is_valid_spawn_point(spawn_point):
+                car = CarAgent(f"car_{self.cars_created}", self)
+                self.grid.place_agent(car, spawn_point)
+                self.schedule.add(car)
+                if car.find_destination():
+                    car.path = car.find_path_astar()
+                self.active_cars.append(car)
+                self.cars_created += 1
+                cars_added += 1
+                print(f"Added car at corner {spawn_point}")
         
-        valid_spawns = [pos for pos in self.spawn_points if self.is_valid_spawn_point(pos)]
-        if not valid_spawns:
-            return False
-        
-        spawn_point = random.choice(valid_spawns)
-        car = CarAgent(f"car_{self.cars_created}", self)
-        
-        self.grid.place_agent(car, spawn_point)
-        self.schedule.add(car)
-        self.active_cars.append(car)
-        self.cars_created += 1
-        return True
+        return cars_added > 0
 
     def get_traffic_density(self):
         """Calculate current traffic density"""
@@ -194,6 +208,9 @@ class TrafficModel(Model):
 
     def step(self):
         """Advance the model by one step"""
+        if self.step_count == 0:
+            self.add_car()
+
         self.step_count += 1
         
         # Try to spawn new cars every 10 steps
@@ -204,7 +221,3 @@ class TrafficModel(Model):
         
         # Update statistics
         self.update_wait_times()
-
-        # Check if simulation should end
-        if self.cars_created >= self.max_cars and not self.active_cars:
-            self.running = False
