@@ -1,0 +1,10 @@
+{
+    ">" : "Right",
+    "<" : "Left",
+    "S" : "Horizontal TrafficLight",
+    "s" : "Vertical TrafficLight",
+    "#" : "Obstacle",
+    "v" : "Down",
+    "^" : "Up",
+    "D" : "Destination"
+}
