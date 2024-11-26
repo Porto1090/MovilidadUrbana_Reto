@@ -3,11 +3,10 @@ from enum import Enum, auto
 
 class AgentType(Enum):
     CAR = auto()
-    OBSTACLE = auto()
     BUILDING = auto()
     TRAFFIC_LIGHT = auto()
     DESTINATION = auto()
-    DIRECTION = auto()
+    ROAD = auto()
     
 class TrafficAgent(Agent):
     """Base class for all traffic agents"""
@@ -26,15 +25,6 @@ class CarAgent(TrafficAgent):
     def step(self):
         pass
 
-class RoadAgent(TrafficAgent):
-    """Agent that represents directional arrows"""
-    def __init__(self, unique_id, model, direction):
-        super().__init__(unique_id, model, AgentType.DIRECTION)
-        self.direction = direction
-    
-    def step(self):
-        pass
-
 class TrafficLightAgent(TrafficAgent):
     """Agent that represents traffic lights"""
     def __init__(self, unique_id, model, orientation):
@@ -48,11 +38,12 @@ class TrafficLightAgent(TrafficAgent):
         if self.countdown <= 0:
             self.state = "green" if self.state == "red" else "red"
             self.countdown = 5
-
-class ObstacleAgent(TrafficAgent):
-    """Obstacle agent"""
-    def __init__(self, unique_id, model):
-        super().__init__(unique_id, model, AgentType.OBSTACLE)
+            
+class RoadAgent(TrafficAgent):
+    """Agent that represents directional arrows"""
+    def __init__(self, unique_id, model, direction):
+        super().__init__(unique_id, model, AgentType.ROAD)
+        self.direction = direction
     
     def step(self):
         pass
