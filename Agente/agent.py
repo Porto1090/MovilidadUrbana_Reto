@@ -5,7 +5,6 @@ import heapq
 
 class AgentType(Enum):
     CAR = auto()
-    OBSTACLE = auto()
     BUILDING = auto()
     TRAFFIC_LIGHT = auto()
     DESTINATION = auto()
@@ -194,7 +193,7 @@ class CarAgent(Agent):
                 return False
 
         # Check for collisions with other cars or obstacles
-        if any(isinstance(agent, (CarAgent, ObstacleAgent)) for agent in cell_contents):
+        if any(isinstance(agent, (CarAgent, BuildingAgent)) for agent in cell_contents):
             return False
 
         # Check if there's a valid road direction
@@ -330,14 +329,6 @@ class RoadAgent(TrafficAgent):
     
     def step(self):
         """Roads don't need to do anything on their step"""
-        pass
-
-class ObstacleAgent(TrafficAgent):
-    """Obstacle agent"""
-    def __init__(self, unique_id, model):
-        super().__init__(unique_id, model, AgentType.OBSTACLE)
-    
-    def step(self):
         pass
 
 class BuildingAgent(TrafficAgent):

@@ -2,7 +2,7 @@
 from mesa.visualization.modules import CanvasGrid, TextElement
 from mesa.visualization.ModularVisualization import ModularServer
 from model import TrafficModel
-from agent import (CarAgent, ObstacleAgent, 
+from agent import (CarAgent, BuildingAgent, 
                   DestinationAgent, TrafficLightAgent, RoadAgent)
 
 class SimulationStats(TextElement):
@@ -36,7 +36,7 @@ def agent_portrayal(agent):
             "text": "🚗"
         })
 
-    elif isinstance(agent, ObstacleAgent):
+    elif isinstance(agent, BuildingAgent):
         portrayal.update({
             "Color": "#404040",
             "text": "⬛"
