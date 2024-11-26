@@ -31,7 +31,7 @@ def agent_portrayal(agent):
         portrayal.update({
             "Shape": "circle",
             "Color": "blue",
-            "Layer": 1,
+            "Layer": 2,
             "r": 0.8,
             "text": "🚗"
         })
@@ -50,7 +50,7 @@ def agent_portrayal(agent):
         color = "#50C878" if agent.state == "green" else "#FF4433"
         portrayal.update({
             "Color": color,
-            "Layer": 2,
+            "Layer": 1,
             "text": "🚦"
         })
     elif isinstance(agent, RoadAgent):

@@ -29,8 +29,6 @@ class TrafficModel(Model):
         # Tracking variables
         self.step_count = 0
         self.cars_created = 0
-        self.max_cars = 50
-        self.max_concurrent_cars = 10
         self.spawn_frequency = 10
         self.total_wait_time = 0
         self.wait_time_counts = 0
@@ -42,6 +40,12 @@ class TrafficModel(Model):
         self.traffic_lights = []
         self.road_cells = {}
         
+        # Traffic light groups for controlling them together
+        self.traffic_light_groups = {
+            "horizontal": [],
+            "vertical": []
+        }
+
         # Initialize the map
         self.initialize_map()
         self.running = True
@@ -95,6 +99,8 @@ class TrafficModel(Model):
                     orientation = "horizontal" if char == 'S' else "vertical"
                     traffic_light = TrafficLightAgent(f"light_{agent_id}", self, orientation)
                     self.traffic_lights.append(traffic_light)
+                    # Agregar al grupo correspondiente
+                    self.traffic_light_groups[orientation].append(traffic_light)
                     self.place_agent(traffic_light, x, y)
                     agent_id += 1
                 
@@ -151,18 +157,15 @@ class TrafficModel(Model):
         # Check if position is already occupied by a car
         cell_contents = self.grid.get_cell_list_contents(pos)
         return not any(isinstance(agent, CarAgent) for agent in cell_contents)
-
+    
     def add_car(self):
         """Try to add a new car at a valid spawn point"""
-        if len(self.active_cars) >= self.max_concurrent_cars or self.cars_created >= self.max_cars:
-            if self.cars_created >= self.max_cars and not self.active_cars:
-                self.running = False
-            return False
-        
+        # Obtener puntos de spawn válidos
         valid_spawns = [pos for pos in self.spawn_points if self.is_valid_spawn_point(pos)]
         if not valid_spawns:
             return False
         
+        # Crear y colocar el nuevo carro
         spawn_point = random.choice(valid_spawns)
         car = CarAgent(f"car_{self.cars_created}", self)
         
@@ -194,6 +197,9 @@ class TrafficModel(Model):
 
     def step(self):
         """Advance the model by one step"""
+        if self.step_count == 0:
+            self.add_car()
+
         self.step_count += 1
         
         # Try to spawn new cars every 10 steps
@@ -206,5 +212,5 @@ class TrafficModel(Model):
         self.update_wait_times()
 
         # Check if simulation should end
-        if self.cars_created >= self.max_cars and not self.active_cars:
-            self.running = False
+        # if self.cars_created >= self.max_cars and not self.active_cars:
+        #     self.running = False

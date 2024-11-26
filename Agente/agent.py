@@ -100,9 +100,9 @@ class CarAgent(Agent):
         elif dx < 0:
             return 'left'
         elif dy > 0:
-            return 'down'
-        elif dy < 0:
             return 'up'
+        elif dy < 0:
+            return 'down'
         return None
 
     def step(self):
@@ -130,18 +130,41 @@ class CarAgent(Agent):
 
         # Try to move to next position in path
         next_pos = self.path[0]
+        
+        # Get current cell contents to check for traffic light
+        current_cell_contents = self.model.grid.get_cell_list_contents(self.pos)
+        next_cell_contents = self.model.grid.get_cell_list_contents(next_pos)
+        
+        # Check for traffic lights first
+        traffic_lights = [agent for agent in next_cell_contents 
+                        if isinstance(agent, TrafficLightAgent)]
+        
+        if traffic_lights:
+            traffic_light = traffic_lights[0]
+            dx = next_pos[0] - self.pos[0]
+            dy = next_pos[1] - self.pos[1]
+            
+            # If light is red and moving in the restricted direction, wait
+            if traffic_light.state == "red":
+                if (traffic_light.orientation == "horizontal" and abs(dx) > 0) or \
+                (traffic_light.orientation == "vertical" and abs(dy) > 0):
+                    print(f"Car {self.unique_id} waiting at traffic light at {self.pos}")
+                    self.waiting_time += 1
+                    return
+        
+        # If movement is valid, move the car
         if self.is_valid_move(self.pos, next_pos):
-            # Actually move the agent
             print(f"Car {self.unique_id} moving from {self.pos} to {next_pos}")
             self.model.grid.move_agent(self, next_pos)
             self.path.pop(0)
             self.waiting_time = 0
             self.current_direction = self.calculate_movement_direction(self.pos, next_pos)
         else:
-            # If can't move, increment waiting time and possibly recalculate path
+            # If can't move, increment waiting time and recalculate path if waiting too long
             self.waiting_time += 1
             print(f"Car {self.unique_id} waiting at {self.pos}")
             if self.waiting_time > 3:
+                print(f"Car {self.unique_id} recalculating path due to long wait")
                 self.path = self.find_path_astar()  # Recalculate path
                 self.waiting_time = 0
 
@@ -152,18 +175,31 @@ class CarAgent(Agent):
                 0 <= next_pos[1] < self.model.grid.height):
             return False
 
-        # Check for collisions with other cars or obstacles
-        cell_contents = self.model.grid.get_cell_list_contents(next_pos)
-        if any(isinstance(agent, (CarAgent, ObstacleAgent)) for agent in cell_contents):
-            return False
-
-        # If it's the destination, it's valid
+        # Check if it's the destination
         if next_pos == self.destination:
             return True
 
+        # Get cell contents at next position
+        cell_contents = self.model.grid.get_cell_list_contents(next_pos)
+
+        traffic_lights = [agent for agent in cell_contents 
+                        if isinstance(agent, TrafficLightAgent)]
+
+        if traffic_lights:
+            traffic_light = traffic_lights[0]
+            # Si hay un semáforo y está en rojo, el carro se detiene completamente
+            if traffic_light.state == "red":
+                print(f"Car {self.unique_id} stopped at red light at {next_pos}")
+                self.waiting_time += 1
+                return False
+
+        # Check for collisions with other cars or obstacles
+        if any(isinstance(agent, (CarAgent, ObstacleAgent)) for agent in cell_contents):
+            return False
+
         # Check if there's a valid road direction
         road_exists = False
-        for agent in self.model.grid.get_cell_list_contents(next_pos):
+        for agent in cell_contents:
             if isinstance(agent, RoadAgent):
                 road_exists = True
                 break
@@ -174,20 +210,6 @@ class CarAgent(Agent):
         movement_dir = self.calculate_movement_direction(current_pos, next_pos)
         if not movement_dir:
             return False
-
-        # Check traffic lights
-        traffic_lights = [agent for agent in cell_contents 
-                         if isinstance(agent, TrafficLightAgent)]
-        if traffic_lights:
-            traffic_light = traffic_lights[0]
-            dx = next_pos[0] - current_pos[0]
-            dy = next_pos[1] - current_pos[1]
-            
-            if traffic_light.state == "red":
-                if traffic_light.orientation == "horizontal" and dx != 0:
-                    return False
-                if traffic_light.orientation == "vertical" and dy != 0:
-                    return False
 
         # Check if this is a valid turn
         return self.is_valid_turn(current_pos, next_pos)
@@ -241,17 +263,53 @@ class TrafficAgent(Agent):
     def __init__(self, unique_id: str, model, agent_type: AgentType):
         super().__init__(unique_id, model)
         self.agent_type = agent_type
-   
 class TrafficLightAgent(TrafficAgent):
     def __init__(self, unique_id, model, orientation):
         super().__init__(unique_id, model, AgentType.TRAFFIC_LIGHT)
         self.orientation = orientation
-        self.state = "green"  # Iniciar en verde
+        # Iniciar los semáforos en estados opuestos según orientación
+        self.state = "green" if orientation == "horizontal" else "red"
         self.timer = 10
         self.base_timer = 10
         self.min_timer = 5
         self.max_timer = 20
 
+    def step(self):
+        """Update traffic light state"""
+        # Solo el primer semáforo horizontal controla el cambio
+        if self.is_group_leader():
+            cars_waiting = self.count_waiting_cars()
+            
+            if cars_waiting > 0:
+                self.timer -= 2
+            else:
+                self.timer -= 1
+                
+            if self.timer <= 0:
+                # Cambiar estados de todos los semáforos
+                self.switch_all_traffic_lights()
+                
+                # Reiniciar timer
+                self.timer = max(self.min_timer, 
+                               min(self.max_timer, 
+                                   self.base_timer + (cars_waiting * 2)))
+
+    def is_group_leader(self):
+        """Solo el primer semáforo horizontal será el líder"""
+        horizontal_lights = [agent for agent in self.model.traffic_lights 
+                           if agent.orientation == "horizontal"]
+        return self == horizontal_lights[0] if horizontal_lights else False
+
+    def switch_all_traffic_lights(self):
+        """Cambiar estados de todos los semáforos"""
+        for light in self.model.traffic_lights:
+            if light.orientation == "horizontal":
+                light.state = "green" if light.state == "red" else "red"
+            else:  # vertical
+                light.state = "red" if light.state == "green" else "green"
+            light.timer = self.timer
+            print(f"Traffic light {light.unique_id} ({light.orientation}) changed to {light.state}")
+    
     def count_waiting_cars(self):
         """Count cars waiting at this traffic light"""
         waiting = 0
@@ -262,26 +320,6 @@ class TrafficLightAgent(TrafficAgent):
             if isinstance(neighbor, CarAgent):
                 waiting += 1
         return waiting
-
-    def step(self):
-        """Update traffic light state"""
-        cars_waiting = self.count_waiting_cars()
-        
-        # Reducir el timer más rápido si hay carros esperando
-        if cars_waiting > 0:
-            self.timer -= 2
-        else:
-            self.timer -= 1
-            
-        # Cambiar estado cuando el timer llega a 0
-        if self.timer <= 0:
-            self.state = "green" if self.state == "red" else "red"
-            print(f"Traffic light {self.unique_id} changed to {self.state}")
-            
-            # Ajustar el timer basado en los carros esperando
-            self.timer = max(self.min_timer, 
-                           min(self.max_timer, 
-                               self.base_timer + (cars_waiting * 2)))
 
 class RoadAgent(TrafficAgent):
     """Road agent with direction information"""
