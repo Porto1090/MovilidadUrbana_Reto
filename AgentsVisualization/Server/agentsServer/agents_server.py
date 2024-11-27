@@ -64,7 +64,7 @@ def getAgents():
             lightPositions = []
 
             agentPositions = [
-                {"id": str(a.unique_id), "x": x, "y":1, "z":z}
+                {"id": str(a.unique_id), "x": x, "y":1, "z":z, "orientation": a.orientation}
                 for agents, (x, z) in trafficModel.grid.coord_iter()
                 for a in agents
                 if isinstance(a, CarAgent)
