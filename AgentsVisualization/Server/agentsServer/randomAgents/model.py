@@ -9,6 +9,9 @@ class TrafficModel(Model):
     def __init__(self, map_file_path: str, map_dict_path: str):
         super().__init__()
         self.car_id = 1000
+        self.step_count = 0
+        self.spawn_frequency = 10
+        self.available_destinations = []
 
         try:
             with open(map_file_path, 'r') as f:
@@ -25,7 +28,7 @@ class TrafficModel(Model):
         self.height = len(self.map_data)
         self.width = len(self.map_data[0])
 
-        self.grid = MultiGrid(self.width, self.height, True)
+        self.grid = MultiGrid(self.width, self.height, False)
         self.schedule = RandomActivation(self)
 
         self.initialize_map()
@@ -53,6 +56,7 @@ class TrafficModel(Model):
                         agent = BuildingAgent(f"build_{agent_id}", self)
                     elif agent_type == "Destination":
                         agent = DestinationAgent(f"dest_{agent_id}", self)
+                        self.available_destinations.append((x, y))
                 
                 if agent:
                     # Coloca el agente en la celda (x, y)
@@ -73,6 +77,14 @@ class TrafficModel(Model):
                 self.grid.place_agent(car, corner)
                 self.schedule.add(car)
 
+    def remove_agent(self, agent):
+        """Remove an agent from the model"""
+        self.grid.remove_agent(agent)
+        self.schedule.remove(agent)
+
     def step(self):
         '''Advance the model by one step.'''
+        self.step_count += 1
+        if self.step_count % self.spawn_frequency == 0:
+            self.add_car()
         self.schedule.step()
