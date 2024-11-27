@@ -69,15 +69,22 @@ class CarAgent(TrafficAgent):
         neighbors = [(x, y-1), (x, y+1), (x+1, y), (x-1, y)]
         return [neighbor for neighbor in neighbors if self.is_valid_move(pos, neighbor)]
 
-    def get_direction(self, pos):
+    def get_direction(self, pos, next_pos):
         """
-        Obtener la dirección de la calle en una posición específica
+        Obtener la dirección del movimiento para un agente carro
         """
-        cell_contents = self.model.grid.get_cell_list_contents(pos)
-        for agent in cell_contents:
-            if isinstance(agent, RoadAgent):
-                return agent.direction
-        return None
+        dx = next_pos[0] - pos[0]
+        dy = next_pos[1] - pos[1]
+        
+        if dx == 0 and dy == 1:
+            return "down"
+        elif dx == 0 and dy == -1:
+            return "up"
+        elif dx == 1 and dy == 0:
+            return "right"
+        elif dx == -1 and dy == 0:
+            return "left"
+        return
     
     def is_direction_consistent(self, road_direction, current_pos, next_pos):
         """
@@ -158,10 +165,6 @@ class CarAgent(TrafficAgent):
         """Lógica de movimiento del agente carro"""
         self.steps_taken += 1
         
-        # Obtener la dirección actual de la calle
-        self.orientation = self.get_direction(self.pos)
-        current_road_direction = self.get_direction(self.pos)
-        
         # Si no hay destino, buscar uno
         if not self.destination:
             if not self.find_destination():
@@ -184,6 +187,7 @@ class CarAgent(TrafficAgent):
             return
         
         next_pos = self.path[0]
+        self.orientation = self.get_direction(self.pos, next_pos)
         
         # Verificar movimiento válido considerando:
         # 1. Validez de la posición
