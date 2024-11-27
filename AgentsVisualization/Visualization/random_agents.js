@@ -70,6 +70,38 @@ class Car3D extends Object3D {
     this.rotation = rotation;
     this.wheels = [];
     this.addWheels();
+
+    // Movimiento suave del coche con interpolación en función de los frames
+    // Pt​=Po​+(Pf​−Po​)⋅Δt
+    this.startPosition = [...position];
+    this.endPosition = [...position];
+    this.totalFrames = 30;
+    this.currentFrame = 0;
+  }
+
+  // Método para actualizar la posición del coche
+  updatePosition() {
+    if (this.currentFrame < this.totalFrames) {
+      let t = this.currentFrame / this.totalFrames;
+
+      this.position = [
+        this.startPosition[0] + (this.endPosition[0] - this.startPosition[0]) * t,
+        this.startPosition[1] + (this.endPosition[1] - this.startPosition[1]) * t,
+        this.startPosition[2] + (this.endPosition[2] - this.startPosition[2]) * t
+      ];
+
+      this.currentFrame++;
+    } else {
+      this.currentFrame = 0;
+      this.position = [...this.endPosition];
+    }
+  }
+
+  // Método para moverse a cierta posición
+  carMovesTo(newPosition) {
+    this.startPosition = [...this.position];
+    this.endPosition = [...newPosition];
+    this.currentFrame = 0;
   }
 
   // Método para asociar las ruedas al coche
@@ -271,7 +303,7 @@ async function getAgents() {
 
       // If the agent exists, update its position and rotation
       if (currentAgent) {
-        currentAgent.position = [agent.x, agent.y + 0.1, agent.z];
+        currentAgent.carMovesTo([agent.x, agent.y + 0.1, agent.z]);
         currentAgent.rotation = getRotationForOrientation(agent.orientation);
         currentAgent.updateWheels();
       } else {
@@ -450,7 +482,7 @@ function drawCarsWithWheels(distance, carRender, wheelRender, viewProjectionMatr
 
     // Iterate over the agents
     for(const car of cars){
-        car.updateWheels();
+        car.updatePosition();
         drawObject(car, carRender["bufferInfo"], programInfo, viewProjectionMatrix);
         /*for (const wheel of car.wheels) {
           gl.bindVertexArray(wheelRender["vao"]);
