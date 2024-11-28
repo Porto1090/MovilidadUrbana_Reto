@@ -1,7 +1,7 @@
 from mesa import Agent
 from enum import Enum, auto
-import heapq
 import random
+import heapq
 
 class AgentType(Enum):
     CAR = auto()
@@ -9,110 +9,69 @@ class AgentType(Enum):
     TRAFFIC_LIGHT = auto()
     DESTINATION = auto()
     ROAD = auto()
-    
+
 class TrafficAgent(Agent):
     """Base class for all traffic agents"""
     def __init__(self, unique_id: str, model, agent_type: AgentType):
         super().__init__(unique_id, model)
         self.agent_type = agent_type
-
+        
 class CarAgent(TrafficAgent):
-    """
-    Agent that follows traffic rules and moves in the direction of arrows
-    """
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model, AgentType.CAR)
         self.steps_taken = 0
         self.destination = None
         self.orientation = None
-        self.path = []
-        self.max_path_attempts = 5  # Límite de intentos para encontrar ruta
+        self.waiting_time = 0
+        self.path = None
 
-    def heuristic(self, a, b):
-        """Manhattan distance heuristic"""
-        return abs(a[0] - b[0]) + abs(a[1] - b[1])
-    
-    def is_valid_move(self, current_pos, next_pos):
-        """
-        Verifica si el movimiento es válido considerando:
-        1. Límites del mapa
-        2. Semáforos
-        3. Presencia de otros agentes
-        """
-        # Verificar límites del mapa
-        if not (0 <= next_pos[0] < self.model.grid.width and 
-                0 <= next_pos[1] < self.model.grid.height):
-            return False
-        
-        # Si es el destino final, siempre es válido
-        if next_pos == self.destination:
-            return True
-        
-        # Obtener contenido de la celda
-        cell_contents = self.model.grid.get_cell_list_contents(next_pos)
-        
-        # Verificar semáforos
-        for agent in cell_contents:
-            if isinstance(agent, TrafficLightAgent):
-                # Si hay un semáforo en rojo, no se puede avanzar
-                if agent.state == "red":
-                    return False
-        
-        # Verificar que no haya carros o edificios
-        return not any(isinstance(agent, (CarAgent, BuildingAgent, DestinationAgent)) for agent in cell_contents)
-    
-    def get_valid_neighbors(self, pos):
-        """
-        Obtener vecinos válidos considerando las restricciones de movimiento
-        """
-        x, y = pos
-        neighbors = [(x, y-1), (x, y+1), (x+1, y), (x-1, y)]
-        return [neighbor for neighbor in neighbors if self.is_valid_move(pos, neighbor)]
+    def heuristic(self, pos1, pos2):
+        """Manhattan distance heuristic for A*"""
+        return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
 
-    def get_direction(self, pos):
+    def get_direction(self, pos, next_pos):
         """
-        Obtener la dirección de la calle en una posición específica
+        Obtener la dirección del movimiento para un agente carro
         """
-        cell_contents = self.model.grid.get_cell_list_contents(pos)
-        for agent in cell_contents:
-            if isinstance(agent, RoadAgent):
-                return agent.direction
+        dx = next_pos[0] - pos[0]
+        dy = next_pos[1] - pos[1]
+        
+        if dx == 0 and dy == 1:
+            return "down"
+        elif dx == 0 and dy == -1:
+            return "up"
+        elif dx == 1 and dy == 0:
+            return "right"
+        elif dx == -1 and dy == 0:
+            return "left"
         return None
-    
-    def is_direction_consistent(self, road_direction, current_pos, next_pos):
-        """
-        Verifica si el movimiento es consistente con la dirección de la calle
-        """
-        dx = next_pos[0] - current_pos[0]
-        dy = next_pos[1] - current_pos[1]
+
+    def get_valid_neighbors(self, pos):
+        """Get valid neighboring positions"""
+        neighbors = []
+        x, y = pos
         
-        # Mapeo de direcciones
-        direction_map = {
-            'up': (0, 1),
-            'down': (0, -1),
-            'right': (1, 0),
-            'left': (-1, 0)
-        }
+        for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+            next_pos = (x + dx, y + dy)
+            
+            if not (0 <= next_pos[0] < self.model.grid.width and 
+                   0 <= next_pos[1] < self.model.grid.height):
+                continue
+            
+            if self.is_valid_move(pos, next_pos):
+                neighbors.append(next_pos)
         
-        # Si no hay dirección de calle definida, permitir movimiento
-        if not road_direction:
-            return True
-        
-        # Verificar si el movimiento coincide con la dirección de la calle
-        expected_move = direction_map.get(road_direction, (dx, dy))
-        print(f"Expected move: {expected_move}, Actual move: ({dx}, {dy})")
-        return (dx, dy) == expected_move
+        return neighbors
 
     def find_path_astar(self):
-        """Implementación de A* para encontrar ruta"""
+        """A* pathfinding implementation"""
         if not self.destination:
             return None
 
         start = self.pos
         goal = self.destination
 
-        # Estructuras de datos para A*
-        open_set = [(self.heuristic(start, goal), start)]
+        open_set = [(0, start)]
         came_from = {}
         g_score = {start: 0}
         f_score = {start: self.heuristic(start, goal)}
@@ -122,7 +81,6 @@ class CarAgent(TrafficAgent):
             current = heapq.heappop(open_set)[1]
 
             if current == goal:
-                # Reconstruir camino
                 path = []
                 while current in came_from:
                     path.append(current)
@@ -145,82 +103,166 @@ class CarAgent(TrafficAgent):
                     f = tentative_g_score + self.heuristic(neighbor, goal)
                     f_score[neighbor] = f
                     heapq.heappush(open_set, (f, neighbor))
+
         return None
 
-    def find_destination(self):
-        """Encontrar un destino aleatorio disponible"""
-        if self.model.available_destinations:
-            self.destination = random.choice(self.model.available_destinations)
-            return True
-        return False
-    
     def step(self):
-        """Lógica de movimiento del agente carro"""
-        self.steps_taken += 1
-        
-        # Obtener la dirección actual de la calle
-        self.orientation = self.get_direction(self.pos)
-        current_road_direction = self.get_direction(self.pos)
-        
-        # Si no hay destino, buscar uno
+        """Execute one step of the car's behavior"""
         if not self.destination:
             if not self.find_destination():
                 return
-        
-        # Si ya llegó al destino, remover el agente
+
         if self.pos == self.destination:
             self.model.remove_agent(self)
             return
-        
-        # Si no hay ruta, calcular una nueva
+
         if not self.path:
             self.path = self.find_path_astar()
-        
-        # Si no hay ruta posible después de múltiples intentos, 
-        # buscar otro destino o quedarse quieto
-        if not self.path:
-            if self.steps_taken % self.max_path_attempts == 0:
-                self.destination = None
-            return
-        
+            if not self.path:
+                self.waiting_time += 1
+                if self.waiting_time > 5:
+                    self.find_destination()
+                    self.waiting_time = 0
+                return
+
         next_pos = self.path[0]
+        self.orientation = self.get_direction(self.pos, next_pos)
         
-        # Verificar movimiento válido considerando:
-        # 1. Validez de la posición
-        # 2. Consistencia con dirección de la calle
-        if (self.is_valid_move(self.pos, next_pos)):
-            # and self.is_direction_consistent(current_road_direction, self.pos, next_pos)):
+        # Verificar semáforos
+        cell_contents = self.model.grid.get_cell_list_contents(next_pos)
+        traffic_lights = [agent for agent in cell_contents 
+                        if isinstance(agent, TrafficLightAgent)]
+        
+        if traffic_lights:
+            traffic_light = traffic_lights[0]
+            dx = next_pos[0] - self.pos[0]
+            dy = next_pos[1] - self.pos[1]
+            
+            if traffic_light.state == "red":
+                if (traffic_light.orientation == "horizontal" and abs(dx) > 0) or \
+                   (traffic_light.orientation == "vertical" and abs(dy) > 0):
+                    self.waiting_time += 1
+                    return
+        
+        if self.is_valid_move(self.pos, next_pos):
             self.model.grid.move_agent(self, next_pos)
             self.path.pop(0)
+            self.waiting_time = 0
         else:
-            # Si no es un movimiento válido, recalcular ruta
-            self.path = self.find_path_astar()
+            self.waiting_time += 1
+            if self.waiting_time > 3:
+                self.path = self.find_path_astar()
+                self.waiting_time = 0
+
+    def is_valid_move(self, current_pos, next_pos):
+        """Check if the move is valid considering all constraints"""
+        # Verificar límites del grid
+        if not (0 <= next_pos[0] < self.model.grid.width and 
+                0 <= next_pos[1] < self.model.grid.height):
+            return False
+
+        # Si es el destino, permitir el movimiento
+        if next_pos == self.destination:
+            return True
+
+        cell_contents = self.model.grid.get_cell_list_contents(next_pos)
+
+        # Verificar colisiones con otros carros o edificios
+        if any(isinstance(agent, (CarAgent, BuildingAgent, DestinationAgent)) for agent in cell_contents):
+            return False
+
+        # Verificar semáforos
+        for agent in cell_contents:
+            if isinstance(agent, TrafficLightAgent):
+                # Si hay un semáforo en rojo, no se puede avanzar
+                if agent.state == "red":
+                    return False
+                
+        # Verificar dirección válida de la calle
+        roads = [agent for agent in cell_contents if isinstance(agent, RoadAgent)]
+        if not roads:
+            return False
+
+        # Obtener la dirección del movimiento
+        movement_dir = self.get_direction(current_pos, next_pos)
+        
+        # Verificar que la dirección del movimiento coincida con la dirección de la calle
+        road_directions = {road.direction for road in roads}
+        
+        valid_moves = {
+            'right': {'right', 'up', 'down'},
+            'left': {'left', 'up', 'down'},
+            'up': {'up', 'left', 'right'},
+            'down': {'down', 'left', 'right'}
+        }
+
+        return any(movement_dir in valid_moves[road_dir] for road_dir in road_directions)
+
+    def find_destination(self):
+        """Find a random destination from available destinations"""
+        if self.model.available_destinations:
+            self.destination = random.choice(self.model.available_destinations)
+            self.path = None
+            return True
+        return False
 
 class TrafficLightAgent(TrafficAgent):
-    """Agent that represents traffic lights"""
     def __init__(self, unique_id, model, orientation):
         super().__init__(unique_id, model, AgentType.TRAFFIC_LIGHT)
-        self.orientation = orientation  # "horizontal" or "vertical"
-        self.state = "green"
-        self.countdown = 5  # Steps until state change
+        self.orientation = orientation
+        self.state = "green" if orientation == "horizontal" else "red"
+        self.timer = 10
+        self.base_timer = 10
+        self.min_timer = 5
+        self.max_timer = 20
 
     def step(self):
-        self.countdown -= 1
-        if self.countdown <= 0:
-            self.state = "green" if self.state == "red" else "red"
-            self.countdown = 5
+        if self.is_group_leader():
+            cars_waiting = self.count_waiting_cars()
             
+            if cars_waiting > 0:
+                self.timer -= 2
+            else:
+                self.timer -= 1
+                
+            if self.timer <= 0:
+                self.switch_all_traffic_lights()
+                self.timer = max(self.min_timer, 
+                               min(self.max_timer, 
+                                   self.base_timer + (cars_waiting * 2)))
+
+    def is_group_leader(self):
+        horizontal_lights = [agent for agent in self.model.traffic_lights 
+                           if agent.orientation == "horizontal"]
+        return self == horizontal_lights[0] if horizontal_lights else False
+
+    def switch_all_traffic_lights(self):
+        for light in self.model.traffic_lights:
+            if light.orientation == "horizontal":
+                light.state = "green" if light.state == "red" else "red"
+            else:
+                light.state = "red" if light.state == "green" else "green"
+            light.timer = self.timer
+
+    def count_waiting_cars(self):
+        waiting = 0
+        neighbors = self.model.grid.get_neighbors(
+            self.pos, moore=False, include_center=True, radius=1
+        )
+        for neighbor in neighbors:
+            if isinstance(neighbor, CarAgent):
+                waiting += 1
+        return waiting
+
 class RoadAgent(TrafficAgent):
-    """Agent that represents directional arrows"""
     def __init__(self, unique_id, model, direction):
         super().__init__(unique_id, model, AgentType.ROAD)
-        self.direction = direction
+        self.direction = direction.lower()
     
     def step(self):
         pass
 
 class BuildingAgent(TrafficAgent):
-    """Building agent"""
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model, AgentType.BUILDING)
     
@@ -228,7 +270,6 @@ class BuildingAgent(TrafficAgent):
         pass
 
 class DestinationAgent(TrafficAgent):
-    """Destination agent"""
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model, AgentType.DESTINATION)
     

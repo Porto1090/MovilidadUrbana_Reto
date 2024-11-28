@@ -33,6 +33,8 @@ def initModel():
 
             # Inicializa el modelo
             trafficModel = TrafficModel(map_file, map_dict)
+            currentStep = 0
+            print(f"Current step reset to: {currentStep}")
 
             # Verifica si la inicialización fue exitosa
             if trafficModel is None:
@@ -40,7 +42,7 @@ def initModel():
 
             # Devuelve un mensaje de éxito con el tamaño del mapa
             print(f"Model initialized with width {trafficModel.width} and height {trafficModel.height}")
-            return jsonify({"message": "Model initialized", "width": trafficModel.width, "height": trafficModel.height})
+            return jsonify({"message": "Model initialized", "width": trafficModel.width, "height": trafficModel.height, "currentStep": currentStep})
 
         except Exception as e:
             # Si ocurre un error, devuelve un mensaje con la descripción del error
@@ -55,11 +57,8 @@ def getAgents():
     global trafficModel
 
     if request.method == 'GET':
-        # Get the positions of the agents and return them to WebGL in JSON.json.t.
-        # Note that the positions are sent as a list of dictionaries, where each dictionary has the id and position of an agent.
-        # The y coordinate is set to 1, since the agents are in a 3D world. The z coordinate corresponds to the row (y coordinate) of the grid in mesa.
         try:
-            #{'agentPositions':agentPositions, 'lightPositions':lightPositions}
+            # Get the positions of the agents and return them in JSON
             agentPositions = []
             lightPositions = []
 
@@ -76,7 +75,7 @@ def getAgents():
                 if isinstance(a, TrafficLightAgent)
             ]
 
-            return jsonify({'agentPositions':agentPositions, 'lightPositions':lightPositions})
+            return jsonify({'agentPositions':agentPositions, 'lightPositions':lightPositions, 'currentStep': currentStep})
         except Exception as e:
             print(e)
             return jsonify({"message":"Error with the agent positions"}), 500
@@ -124,6 +123,34 @@ def updateModel():
             print(e)
             return jsonify({"message":"Error during step."}), 500
 
+# Ruta para obtener estadísticas del modelo
+@app.route('/getStats', methods=['GET'])
+@cross_origin()
+def getStats():
+    global trafficModel
+    
+    if request.method == 'GET':
+        try:
+            # Calcular estadísticas actuales
+            active_cars = len(trafficModel.active_cars)
+            cars_finished = trafficModel.cars_finished
+            active_cars_history = trafficModel.active_cars_per_step
+            traffic_density = trafficModel.get_traffic_density()
+            
+            return jsonify({
+                'currentStats': {
+                    'activeCars': active_cars,
+                    'carsFinished': cars_finished,
+                    'trafficDensity': round(traffic_density, 2),
+                    'currentStep': currentStep
+                },
+                'historicalStats': {
+                    'activeCarsPerStep': active_cars_history
+                }
+            })
+        except Exception as e:
+            print(e)
+            return jsonify({"error": "Error getting statistics"}), 500
 
 if __name__=='__main__':
     # Run the flask server in port 8585

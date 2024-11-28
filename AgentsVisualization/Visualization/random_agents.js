@@ -110,6 +110,19 @@ const data = {
   mapDict: "../../public/mapDictionary.json"
 };
 
+// Agregar variables globales para las estadísticas
+let statistics = {
+  currentStats: {
+      activeCars: 0,
+      carsFinished: 0,
+      trafficDensity: 0,
+      currentStep: 0
+  },
+  historicalStats: {
+      activeCarsPerStep: []
+  }
+};
+
 let width = 0;
 let height = 0;
 
@@ -131,11 +144,12 @@ async function main() {
   const { bufferInfo: trafficLightBufferInfoG, vao: trafficLightVaoG } = createObjectDataAndVAO(dataGenerator.createRoad, gl, programInfo, 1, "green");
   const { bufferInfo: wheelBufferInfo, vao: wheelVao } = createObjectDataAndVAO(dataGenerator.createWheel, gl, programInfo);
 
+  
+  clearStats();
   setupUI();
-
   await initAgentsModel();
-
   await getEnvironment();
+  await getStats();
 
   let rendering = {
       "car": {
@@ -184,6 +198,8 @@ function createObjectDataAndVAO(createDataFunc, gl, programInfo, ...args) {
 async function initAgentsModel() {
   try {
     // Send a POST request to the agent server to initialize the model
+    clearStats();
+
     let response = await fetch(agent_server_uri + "init", {
       method: 'POST', 
       headers: { 'Content-Type':'application/json' },
@@ -197,6 +213,7 @@ async function initAgentsModel() {
       console.log(result.message)
       width = result.width;
       height = result.height;
+      frameCount = 0;
     }
       
   } catch (error) {
@@ -376,6 +393,35 @@ async function update() {
 }
 
 /*
+ * Función para obtener las estadísticas
+ */
+async function getStats() {
+  try {
+      const response = await fetch(agent_server_uri + "getStats");
+      if (!response.ok) {
+          throw new Error(`Error fetching stats: ${response.statusText}`);
+      }
+      const data = await response.json();
+      
+      // Actualizar los elementos HTML con las nuevas estadísticas
+      document.getElementById('activeCars').textContent = data.currentStats.activeCars;
+      document.getElementById('carsFinished').textContent = data.currentStats.carsFinished;
+      document.getElementById('trafficDensity').textContent = `${data.currentStats.trafficDensity.toFixed(2)}%`;
+      document.getElementById('currentStep').textContent = data.currentStats.currentStep;
+  } catch (error) {
+      console.error("Error occurred while fetching stats:", error);
+  }
+}
+
+function clearStats() {
+  // Resetear todos los valores estadísticos a sus valores iniciales
+  document.getElementById('activeCars').textContent = '0';
+  document.getElementById('carsFinished').textContent = '0';
+  document.getElementById('trafficDensity').textContent = '0%';
+  document.getElementById('currentStep').textContent = '0';
+}
+
+/*
  * Draws the scene by rendering the agents and obstacles.
  */
 async function drawScene(gl, programInfo, rendering) {
@@ -417,7 +463,8 @@ async function drawScene(gl, programInfo, rendering) {
     // Update the scene every 30 frames
     if(frameCount%30 == 0){
       frameCount = 0
-      await update()
+      await update();
+      await getStats();
     } 
 
     // Request the next frame
