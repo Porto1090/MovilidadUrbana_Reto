@@ -358,13 +358,13 @@ async function getAgents() {
 
       // If the traffic light exists, update its position, orientation and state
       if (currentAgent) {
-        currentAgent.position = [agent.x, agent.y, agent.z];
+        currentAgent.position = [agent.x, agent.y +1, agent.z];
         currentAgent.orientation = agent.orientation;
         currentAgent.state = agent.state;
         currentAgent.color = getStateColor(agent.state);
       } else {
         // If the traffic light doesn't exist, create a new one and add it to trafficLights
-        const newLight = new TrafficLight3D(agent.id, [agent.x, agent.y, agent.z]);
+        const newLight = new TrafficLight3D(agent.id, [agent.x, agent.y +1, agent.z]);
         newLight.orientation = agent.orientation;
         newLight.state = agent.state;
         newLight.color = getStateColor(agent.state);
