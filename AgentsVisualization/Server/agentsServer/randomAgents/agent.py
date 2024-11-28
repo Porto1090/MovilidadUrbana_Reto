@@ -30,9 +30,7 @@ class CarAgent(TrafficAgent):
         return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
 
     def get_direction(self, pos, next_pos):
-        """
-        Obtener la dirección del movimiento para un agente carro
-        """
+        """Obtener la dirección del movimiento para un agente carro"""
         dx = next_pos[0] - pos[0]
         dy = next_pos[1] - pos[1]
         
@@ -108,23 +106,33 @@ class CarAgent(TrafficAgent):
 
     def step(self):
         """Execute one step of the car's behavior"""
+        
+        # Si no tenemos destino, lo buscamos
         if not self.destination:
             if not self.find_destination():
                 return
 
-        if self.pos == self.destination:
-            self.model.remove_agent(self)
-            return
-
+        # Intentamos calcular un camino
         if not self.path:
             self.path = self.find_path_astar()
-            if not self.path:
-                self.waiting_time += 1
-                if self.waiting_time > 5:
-                    self.find_destination()
-                    self.waiting_time = 0
-                return
 
+        # Si no podemos calcular el camino y estamos en el destino, terminamos
+        if not self.path and self.pos == self.destination:
+            self.model.remove_agent(self)  # Eliminamos el coche porque ya está en su destino
+            return
+
+        # Si no podemos calcular el camino y no estamos en el destino, cambiamos de destino
+        if not self.path:
+            self.find_destination()
+            self.path = self.find_path_astar()  # Recalculamos el camino hacia el nuevo destino
+
+        # Ahora nos aseguramos de que el coche se mueva si ya tiene un camino
+        if self.path is None or len(self.path) == 0:
+            self.find_destination()
+            self.path = self.find_path_astar()
+            return
+
+        # Ahora nos aseguramos de que el coche se mueva si ya tiene un camino
         next_pos = self.path[0]
         self.orientation = self.get_direction(self.pos, next_pos)
         
@@ -146,11 +154,13 @@ class CarAgent(TrafficAgent):
         
         if self.is_valid_move(self.pos, next_pos):
             self.model.grid.move_agent(self, next_pos)
-            self.path.pop(0)
+            self.path.pop(0)  # Eliminamos la primera casilla del camino
             self.waiting_time = 0
         else:
+            # Si no podemos movernos, cambiamos de destino
             self.waiting_time += 1
-            if self.waiting_time > 3:
+            if self.waiting_time > 3:  # Si el coche no ha podido moverse en 3 pasos, cambia de destino
+                self.find_destination()
                 self.path = self.find_path_astar()
                 self.waiting_time = 0
 
@@ -202,7 +212,7 @@ class CarAgent(TrafficAgent):
         """Find a random destination from available destinations"""
         if self.model.available_destinations:
             self.destination = random.choice(self.model.available_destinations)
-            self.path = None
+            self.path = None  # Restablecemos el camino
             return True
         return False
 

@@ -4,6 +4,7 @@ from mesa.time import RandomActivation
 from mesa.space import MultiGrid
 from .agent import (CarAgent, RoadAgent, TrafficLightAgent, 
                  BuildingAgent, DestinationAgent)
+import requests
 import json
 import random
 
@@ -28,7 +29,7 @@ class TrafficModel(Model):
         self.step_count = 0
         self.cars_created = 0
 
-        self.spawn_frequency = 10
+        self.spawn_frequency = 2
 
         self.total_wait_time = 0
         self.wait_time_counts = 0
@@ -231,6 +232,28 @@ class TrafficModel(Model):
         self.grid.remove_agent(agent)
         self.schedule.remove(agent)
 
+    def sendInfoServer(self):
+        url = "http://10.49.12.55:5000/api/"
+        endpoint = "validate_attempt"
+
+        data = {
+            "year" : 2024,
+            "classroom" : 301,
+            "name" : "Equipo Do y Porto",
+            "current_cars": len(self.active_cars),
+            "total_arrived": self.cars_finished
+        }
+
+        headers = {
+            "Content-Type": "application/json"
+        }
+
+        response = requests.post(url+endpoint, data=json.dumps(data), headers=headers)
+
+        print("Request " + "successful" if response.status_code == 200 else "failed", "Status code:", response.status_code)
+        print("Response:", response.json())
+
+
     def step(self):
         """Advance the model by one step"""
         if self.step_count == 0:
@@ -241,6 +264,8 @@ class TrafficModel(Model):
         if self.step_count % self.spawn_frequency == 0:
             self.add_car()
 
+        if self.step_count % 20 == 0:
+            self.sendInfoServer()
         
         # Guardar cantidad de coches activos antes del step
         self.active_cars_per_step.append(len(self.active_cars))

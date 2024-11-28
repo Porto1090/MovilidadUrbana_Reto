@@ -557,7 +557,7 @@ async function drawScene(gl, programInfo, rendering) {
     frameCount++
 
     // Update the scene every 30 frames
-    if(frameCount%30 == 0){
+    if(frameCount%10 == 0){
       frameCount = 0
       await update();
       await getStats();
