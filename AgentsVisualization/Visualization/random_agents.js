@@ -2,42 +2,15 @@
 
 import * as twgl from 'twgl.js';
 import GUI from 'lil-gui';
-import * as dataGenerator from './dataGenerator.js';
+import { loadOBJ } from './parseOBJtoWebGL.js';
 
-// Define the vertex shader code, using GLSL 3.00
-const vsGLSL = `#version 300 es
-precision highp float;
-in vec4 a_position;
-in vec4 a_color;
-
-uniform mat4 u_transforms;
-uniform mat4 u_matrix;
-uniform vec4 u_color;
-
-out vec4 v_color;
-
-void main() {
-  gl_Position = u_matrix * a_position;
-  v_color = u_color;
-}
-`;
-
-const fsGLSL = `#version 300 es
-precision highp float;
-
-in vec4 v_color;
-
-out vec4 fragColor;
-
-void main() {
-  fragColor = v_color;
-}
-`;
+import vsGLSL from './shaders/vshader.glsl?raw';
+import fsGLSL from './shaders/fshader.glsl?raw';
 
 // Define the Object3D class to represent 3D objects
 // Clase base para representar objetos 3D
 class Object3D {
-  constructor(id, position = [0, 0, 0], rotation = [0, 0, 0], scale = [1, 1, 1], color = [1, 1, 1, 1], shininess = 100) {
+  constructor(id, position = [0, 0, 0], rotation = [0, 0, 0], scale = [1, 1, 1], color = [1, 1, 1, 1], shininess = 100.0) {
     this.id = id;
     this.position = position;
     this.rotation = rotation;
@@ -47,8 +20,8 @@ class Object3D {
 
     // Definir material de forma genérica en el constructor base
     this.material = {
-      ambientColor: color,
-      diffuseColor: color,
+      ambientColor: this.color,
+      diffuseColor: this.color,
       specularColor: [1, 1, 1, 1],
       shininess: shininess
     };
@@ -56,18 +29,14 @@ class Object3D {
     this.matrix = twgl.m4.create();
   }
 
-  // Método para actualizar la matriz (transformaciones)
-  updateMatrix(viewProjectionMatrix) {
-    this.matrix = twgl.m4.translate(viewProjectionMatrix, this.position);
-    this.matrix = twgl.m4.rotateX(this.matrix, this.rotation[0]);
-    this.matrix = twgl.m4.rotateY(this.matrix, this.rotation[1]);
-    this.matrix = twgl.m4.rotateZ(this.matrix, this.rotation[2]);
-    this.matrix = twgl.m4.scale(this.matrix, this.scale);
+  updateMaterial(color) {
+    this.material.ambientColor = color
+    this.material.diffuseColor = color
   }
 }
 
 class Building3D extends Object3D {
-  constructor(id, position, rotation, scale, color = [0.5, 0.5, 0.5, 1], shininess = 33.0) {
+  constructor(id, position, rotation, scale, color = [0.5, 0.5, 0.5, 1], shininess) {
     super(id, position, rotation, scale, color, shininess);
   }
 }
@@ -80,13 +49,13 @@ class Road3D extends Object3D {
 }
 
 class Destination3D extends Object3D {
-  constructor(id, position, rotation, scale, color = [0.33, 1, 1, 1], shininess) {
+  constructor(id, position, rotation, scale, color = [0.33, 0, 0.33, 1], shininess = 10000000) {
     super(id, position, rotation, scale, color, shininess);
   }
 }
 
 class TrafficLight3D extends Object3D {
-  constructor(id, position, rotation, scale, color, shininess) {
+  constructor(id, position, rotation, scale, color, shininess = 100) {
     super(id, position, rotation, scale, color, shininess);
     this.orientation = undefined;
     this.state = "red";
@@ -198,25 +167,19 @@ let height = 0;
 
 // Define the camera position
 const settings = {
-  // Speed in degrees
-  rotationSpeed: {
-    x: 0,
-    y: 30,
-    z: 0,
-  },
   cameraPosition: {
-    x: 15,
-    y: 30,
-    z: 0,
+    x: -7.5,
+    y: 20,
+    z: 10,
   },
   lightPosition: {
     x: 20,
-    y: 30,
-    z: 20,
+    y: 5,
+    z: 6.5,
   },
-  ambientColor: [0.5, 0.5, 0.5, 1.0],
-  diffuseColor: [0.5, 0.5, 0.5, 1.0],
-  specularColor: [0.5, 0.5, 0.5, 1.0],
+  ambientColor: [1, 1, 1, 1.0],
+  diffuseColor: [0, 0, 1, 1.0],
+  specularColor: [0.1, 0.1, 0.1, 1.0],
 };
 
 // Main function to initialize and run the application
@@ -228,13 +191,16 @@ async function main() {
   
   programInfo = twgl.createProgramInfo(gl, [vsGLSL, fsGLSL]);
 
+  let carArray = await loadOBJ('./models/carcacha.obj');
+  let wheelArray = await loadOBJ('./models/rueda.obj');
+  let cubeArray = await loadOBJ('./models/cube_1.obj');
   // Crear los objetos con bufferInfo y VAO para los diferentes tipos de objetos
-  const { bufferInfo: carsBufferInfo, vao: carsVao } = createObjectDataAndVAO(dataGenerator.createCar, gl, programInfo);
-  const { bufferInfo: buildBufferInfo, vao: buildVao } = createObjectDataAndVAO(dataGenerator.createBuilding, gl, programInfo, 1, 0);
-  const { bufferInfo: roadBufferInfo, vao: roadVao } = createObjectDataAndVAO(dataGenerator.createRoad, gl, programInfo, 1);
-  const { bufferInfo: destinationBufferInfo, vao: destinationVao } = createObjectDataAndVAO(dataGenerator.createDestination, gl, programInfo, 1);
-  const { bufferInfo: trafficLightBufferInfo, vao: trafficLightVao } = createObjectDataAndVAO(dataGenerator.createRoad, gl, programInfo, 1);
-  const { bufferInfo: wheelBufferInfo, vao: wheelVao } = createObjectDataAndVAO(dataGenerator.createWheel, gl, programInfo);
+  const { bufferInfo: carsBufferInfo, vao: carsVao } = createObjectData(carArray, gl, programInfo);
+  const { bufferInfo: buildBufferInfo, vao: buildVao } = createObjectData(cubeArray, gl, programInfo);
+  const { bufferInfo: roadBufferInfo, vao: roadVao } = createObjectData(cubeArray, gl, programInfo);
+  const { bufferInfo: destinationBufferInfo, vao: destinationVao } = createObjectData(cubeArray, gl, programInfo);
+  const { bufferInfo: trafficLightBufferInfo, vao: trafficLightVao } = createObjectData(cubeArray, gl, programInfo);
+  const { bufferInfo: wheelBufferInfo, vao: wheelVao } = createObjectData(wheelArray, gl, programInfo);
 
   setupUI();
 
@@ -255,8 +221,7 @@ async function main() {
   drawScene(gl, programInfo, rendering);
 }
 
-function createObjectDataAndVAO(createDataFunc, gl, programInfo, ...args) {
-  const data = createDataFunc(...args);
+function createObjectData(data, gl, programInfo) {
   const bufferInfo = twgl.createBufferInfoFromArrays(gl, data);
   const vao = twgl.createVAOFromBufferInfo(gl, programInfo, bufferInfo);
 
@@ -339,6 +304,7 @@ async function getAgents() {
         // If the agent doesn't exist, create a new one and add it to cars
         const newAgent = new Car3D(agent.id, [agent.x, agent.y + 0.1, agent.z]);
         newAgent.color = createRandomColor();
+        newAgent.updateMaterial(newAgent.color);
         newAgent.rotation = getRotationForOrientation(agent.orientation);
         cars.push(newAgent);
       }
@@ -362,12 +328,14 @@ async function getAgents() {
         currentAgent.orientation = agent.orientation;
         currentAgent.state = agent.state;
         currentAgent.color = getStateColor(agent.state);
+        currentAgent.updateMaterial(currentAgent.color);
       } else {
         // If the traffic light doesn't exist, create a new one and add it to trafficLights
         const newLight = new TrafficLight3D(agent.id, [agent.x, agent.y +1, agent.z]);
         newLight.orientation = agent.orientation;
         newLight.state = agent.state;
         newLight.color = getStateColor(agent.state);
+        newLight.updateMaterial(newLight.color);
         trafficLights.push(newLight);
       }
     }
@@ -401,7 +369,7 @@ async function getEnvironment() {
         for (const obstacle of obstaclesList) {
           switch (type) {
             case 'road':
-              const road = new Road3D(obstacle.id, [obstacle.x, obstacle.y, obstacle.z]);
+              const road = new Road3D(obstacle.id, [obstacle.x, obstacle.y-0.5, obstacle.z]);
               road.direction = obstacle.direction;
               roads.push(road);
               break;
@@ -473,6 +441,58 @@ async function drawScene(gl, programInfo, rendering) {
     // Use the program
     gl.useProgram(programInfo.program);
 
+    let cameraPosition = twgl.v3.create(settings.cameraPosition.x, settings.cameraPosition.y, settings.cameraPosition.z);
+
+    // Set the light position and view position uniforms
+    let globalUniforms = {
+      u_viewWorldPosition: cameraPosition,
+      u_ambientLight: settings.ambientColor
+    };
+
+    // Set the light uniforms
+    const lightPositions = [];
+    const lightDColors = [];
+    const lightSColors = [];
+
+    // Include the main light
+    lightPositions.push([
+      settings.lightPosition.x,
+      settings.lightPosition.y,
+      settings.lightPosition.z,
+    ]);
+    lightDColors.push(settings.diffuseColor);
+    lightSColors.push(settings.specularColor);
+
+    // Include traffic light sources
+    for (const light of trafficLights) {
+      lightPositions.push(light.position);
+      lightDColors.push(light.material.diffuseColor);
+      lightSColors.push([0, 0, 0, 1.0]);
+    }
+
+    const numLights = lightPositions.length;
+
+    // Flatten arrays (turn into 1 dimensional array)
+    const flatLightPos = lightPositions.flat();
+    const flatLightDColors = lightDColors.flat();
+    const flatLightSColors = lightSColors.flat();
+
+    // Create lights uniforms
+    const lightsUniforms = {
+      u_numLights: numLights,
+      u_lightWorldPositions: flatLightPos,
+      u_lightDiffuseColors: flatLightDColors,
+      u_lightSpecularColors: flatLightSColors,
+    };
+
+    // Combine all uniforms
+    const allUniforms = {
+      ...globalUniforms,
+      ...lightsUniforms,
+    };
+
+    twgl.setUniforms(programInfo, allUniforms);
+
     // Set up the view-projection matrix
     const viewProjectionMatrix = setupWorldView(gl);
 
@@ -502,13 +522,27 @@ function drawObjects(list, vao, bufferInfo, programInfo, viewProjectionMatrix) {
     if (object.updatePosition) {
       object.updatePosition();
     }
-    object.updateMatrix(viewProjectionMatrix);
-    object.updateMatrix(viewProjectionMatrix);
+    
+    const trans = twgl.v3.create(...object.position);
+    const scale = twgl.v3.create(...object.scale);
 
-    let worldViewProjectionMatrix = twgl.m4.multiply(viewProjectionMatrix, object.matrix);
+    // Calculate the object's matrix
+    object.matrix = twgl.m4.translate(twgl.m4.identity(), trans);
+    object.matrix = twgl.m4.rotateX(object.matrix, object.rotation[0]);
+    object.matrix = twgl.m4.rotateY(object.matrix, object.rotation[1]);
+    object.matrix = twgl.m4.rotateZ(object.matrix, object.rotation[2]);
+    object.matrix = twgl.m4.scale(object.matrix, scale);
+
+    let worldViewProjection = twgl.m4.multiply(viewProjectionMatrix, object.matrix)
+    let worldInverseTransform = twgl.m4.inverse(object.matrix)
     const uniforms = {
-      u_matrix: object.matrix,
-      u_color: object.color
+      u_world: object.matrix,
+      u_worldInverseTransform: worldInverseTransform,
+      u_worldViewProjection: worldViewProjection,
+      u_ambientColor: object.material.ambientColor,
+      u_diffuseColor: object.material.diffuseColor,
+      u_specularColor: object.material.specularColor,
+      u_shininess: object.material.shininess,
     };
   
     twgl.setUniforms(programInfo, uniforms);
