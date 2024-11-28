@@ -177,7 +177,7 @@ class CarAgent(TrafficAgent):
                 # Si hay un semáforo en rojo, no se puede avanzar
                 if agent.state == "red":
                     return False
-                
+                  
         # Verificar dirección válida de la calle
         roads = [agent for agent in cell_contents if isinstance(agent, RoadAgent)]
         if not roads:

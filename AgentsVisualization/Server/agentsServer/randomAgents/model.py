@@ -27,7 +27,9 @@ class TrafficModel(Model):
         # Variables de seguimiento
         self.step_count = 0
         self.cars_created = 0
+
         self.spawn_frequency = 10
+
         self.total_wait_time = 0
         self.wait_time_counts = 0
         
@@ -71,6 +73,45 @@ class TrafficModel(Model):
                     road_agent = RoadAgent(f"road_{agent_id}", self, direction_map[char])
                     self.place_agent(road_agent, x, y)
                     self.road_cells[(x, y)] = direction_map[char]
+                    
+                    agent_id += 1
+                    
+                    # Añadir puntos de spawn en los bordes
+                    if x in [0, self.width-1] or y in [0, self.height-1]:
+                        self.spawn_points.append((x, y))
+                
+                elif char == '#':
+                    building = BuildingAgent(f"building_{agent_id}", self)
+                    self.place_agent(building, x, y)
+                    agent_id += 1
+                
+                elif char in ['S', 's']:
+                    # Primero colocar un agente de calle con la dirección apropiada
+                    if char == 'S':  # Semáforo horizontal
+                        road_directions = ['right', 'left']
+                        for direction in road_directions:
+                            road_agent = RoadAgent(f"road_{agent_id}", self, direction)
+                            self.place_agent(road_agent, x, y)
+                            agent_id += 1
+                    else:  # Semáforo vertical
+                        road_directions = ['up', 'down']
+                        for direction in road_directions:
+                            road_agent = RoadAgent(f"road_{agent_id}", self, direction)
+                            self.place_agent(road_agent, x, y)
+                            agent_id += 1
+                    
+                    # Luego colocar el semáforo
+                    orientation = "horizontal" if char == 'S' else "vertical"
+                    traffic_light = TrafficLightAgent(f"light_{agent_id}", self, orientation)
+                    self.traffic_lights.append(traffic_light)
+                    self.traffic_light_groups[orientation].append(traffic_light)
+                    self.place_agent(traffic_light, x, y)
+                    agent_id += 1
+                
+                elif char == 'D':
+                    destination = DestinationAgent(f"dest_{agent_id}", self)
+                    self.available_destinations.append((x, y))
+                    self.place_agent(destination, x, y)
                     agent_id += 1
                     
                     # Añadir puntos de spawn en los bordes
@@ -186,6 +227,7 @@ class TrafficModel(Model):
             self.active_cars.remove(agent)
             if isinstance(agent, CarAgent) and agent.pos == agent.destination:
                 self.cars_finished += 1  # Incrementar contador cuando un coche llega a su destino
+
         self.grid.remove_agent(agent)
         self.schedule.remove(agent)
 
@@ -198,6 +240,7 @@ class TrafficModel(Model):
         
         if self.step_count % self.spawn_frequency == 0:
             self.add_car()
+
         
         # Guardar cantidad de coches activos antes del step
         self.active_cars_per_step.append(len(self.active_cars))
