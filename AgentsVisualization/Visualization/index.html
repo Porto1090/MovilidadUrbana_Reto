@@ -5,24 +5,13 @@
         <link rel="stylesheet" href="styles.css">
         <script defer type="module" src="random_agents.js"></script>
         <style>
-            #headerContainer {
-                padding: 20px;
-                background-color: #f5f5f5;
-                text-align: center;
-            }
-
-            canvas {
-                display: block;
-                margin: 20px auto;
-                border: 1px solid #ccc;
-            }
 
             #statsGrid {
                 display: flex;
                 justify-content: center;
                 gap: 50px;
-                margin-top: 20px;
                 text-align: center;
+                margin-top: 70px;
             }
 
             .stat-box {
@@ -34,7 +23,6 @@
             .stat-label {
                 font-size: 14px;
                 color: #666;
-                margin-bottom: 5px;
             }
 
             .stat-value {
@@ -62,10 +50,10 @@
 
     <body>
         <div id='headerContainer'>
-            <h1>Agents Visualization</h1>
+            <h1>MOVILIDAD URBANA</h1>
         </div>
         <canvas id="canvas"></canvas>
-        <div id="statsGrid">
+        <div id="statsGrid" id="footer">
             <div class="stat-box">
                 <span class="stat-label">Active Cars</span>
                 <span id="activeCars" class="stat-value">0</span>
@@ -84,5 +72,6 @@
             </div>
             <button id="restartButton" class="restart-button">Restart Simulation</button>
         </div>
+        <br>
     </body>
 </html>
