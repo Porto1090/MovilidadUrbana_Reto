@@ -170,14 +170,14 @@ class CarAgent(TrafficAgent):
         # Verificar colisiones con otros carros o edificios
         if any(isinstance(agent, (CarAgent, BuildingAgent, DestinationAgent)) for agent in cell_contents):
             return False
-        
+
         # Verificar semáforos
         for agent in cell_contents:
             if isinstance(agent, TrafficLightAgent):
                 # Si hay un semáforo en rojo, no se puede avanzar
                 if agent.state == "red":
                     return False
-
+                  
         # Verificar dirección válida de la calle
         roads = [agent for agent in cell_contents if isinstance(agent, RoadAgent)]
         if not roads:

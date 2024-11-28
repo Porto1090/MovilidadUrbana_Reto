@@ -68,7 +68,7 @@ def agent_portrayal(agent):
     
     return portrayal
 
-def create_server(map_file="public/2022_base.txt", map_dict="public/mapDictionary.json"):
+def create_server(map_file="public/2024_base.txt", map_dict="public/mapDictionary.json"):
     # Calculate grid size from map file
     with open(map_file, 'r') as f:
         map_data = f.read().strip().split('\n')
