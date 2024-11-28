@@ -233,7 +233,7 @@ function createBuilding(size, height) {
     };
 }
 
-function createRoad(size, color) {
+function createRoad(size) {
     // Crear un plano para la carretera
     const positions = new Float32Array([
         -0.5, 0.0, -0.5,
@@ -248,22 +248,6 @@ function createRoad(size, color) {
       0, 0, 0,
       0, 0, 0,
     ]);
-    
-    if (color == "red") {
-      colors = new Float32Array([
-        1, 0, 0,
-        1, 0, 0,
-        1, 0, 0,
-        1, 0, 0,
-      ]);
-    } else if (color == "green") {
-      colors = new Float32Array([
-        0, 1, 0,
-        0, 1, 0,
-        0, 1, 0,
-        0, 1, 0,
-      ]);
-    }
     
     const indices = new Uint16Array([
         0, 1, 2,

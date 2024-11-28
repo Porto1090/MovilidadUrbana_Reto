@@ -35,24 +35,111 @@ void main() {
 `;
 
 // Define the Object3D class to represent 3D objects
+// Clase base para representar objetos 3D
 class Object3D {
-  constructor(id, position=[0,0,0], rotation=[0,0,0], scale=[1,1,1], color=[1,1,1,1]) {
+  constructor(id, position = [0, 0, 0], rotation = [0, 0, 0], scale = [1, 1, 1], color = [1, 1, 1, 1], shininess = 100) {
     this.id = id;
     this.position = position;
     this.rotation = rotation;
     this.scale = scale;
     this.color = color;
+    this.shininess = shininess;
+
+    // Definir material de forma genérica en el constructor base
+    this.material = {
+      ambientColor: color,
+      diffuseColor: color,
+      specularColor: [1, 1, 1, 1],
+      shininess: shininess
+    };
+
     this.matrix = twgl.m4.create();
-    this.wheels = [];
   }
 
-  // Método para asociar ruedas al coche
+  // Método para actualizar la matriz (transformaciones)
+  updateMatrix(viewProjectionMatrix) {
+    this.matrix = twgl.m4.translate(viewProjectionMatrix, this.position);
+    this.matrix = twgl.m4.rotateX(this.matrix, this.rotation[0]);
+    this.matrix = twgl.m4.rotateY(this.matrix, this.rotation[1]);
+    this.matrix = twgl.m4.rotateZ(this.matrix, this.rotation[2]);
+    this.matrix = twgl.m4.scale(this.matrix, this.scale);
+  }
+}
+
+class Building3D extends Object3D {
+  constructor(id, position, rotation, scale, color = [0.5, 0.5, 0.5, 1], shininess = 33.0) {
+    super(id, position, rotation, scale, color, shininess);
+  }
+}
+
+class Road3D extends Object3D {
+  constructor(id, position, rotation, scale, color = [0, 0, 0, 1], shininess) {
+    super(id, position, rotation, scale, color, shininess);
+    this.direction = undefined;
+  }
+}
+
+class Destination3D extends Object3D {
+  constructor(id, position, rotation, scale, color = [0.33, 1, 1, 1], shininess) {
+    super(id, position, rotation, scale, color, shininess);
+  }
+}
+
+class TrafficLight3D extends Object3D {
+  constructor(id, position, rotation, scale, color, shininess) {
+    super(id, position, rotation, scale, color, shininess);
+    this.orientation = undefined;
+    this.state = "red";
+  }
+}
+
+class Car3D extends Object3D {
+  constructor(id, position, rotation, scale = [0.1, 0.2, 0.2]) {
+    super(id, position, rotation, scale);
+    this.shininess = 100.0;
+    this.wheels = [];
+    this.addWheels();
+
+    // Movimiento suave del coche con interpolación en función de los frames
+    // Pt​=Po​+(Pf​−Po​)⋅Δt
+    this.startPosition = [...position];
+    this.endPosition = [...position];
+    this.totalFrames = 30;
+    this.currentFrame = 0;
+  }
+
+  // Método para actualizar la posición del coche
+  updatePosition() {
+    if (this.currentFrame < this.totalFrames) {
+      let t = this.currentFrame / this.totalFrames;
+
+      this.position = [
+        this.startPosition[0] + (this.endPosition[0] - this.startPosition[0]) * t,
+        this.startPosition[1] + (this.endPosition[1] - this.startPosition[1]) * t,
+        this.startPosition[2] + (this.endPosition[2] - this.startPosition[2]) * t
+      ];
+
+      this.currentFrame++;
+    } else {
+      this.currentFrame = 0;
+      this.position = [...this.endPosition];
+    }
+  }
+
+  // Método para moverse a cierta posición
+  carMovesTo(newPosition) {
+    this.startPosition = [...this.position];
+    this.endPosition = [...newPosition];
+    this.currentFrame = 0;
+  }
+
+  // Método para asociar las ruedas al coche
   addWheels() {
-    // Hay que medir esto a ojo
-    this.wheels.push(new Wheel('wheel1', [0.1, -0.1, 0.2]));
-    this.wheels.push(new Wheel('wheel2', [-0.1, -0.1, 0.2]));
-    this.wheels.push(new Wheel('wheel3', [0.1, -0.1, -0.2]));
-    this.wheels.push(new Wheel('wheel4', [-0.1, -0.1, -0.2]));
+    // Ruedas ubicadas respecto al coche, por ejemplo
+    this.wheels.push(new Wheel3D('wheel1', [0.1, -0.1, 0.2]));
+    this.wheels.push(new Wheel3D('wheel2', [-0.1, -0.1, 0.2]));
+    this.wheels.push(new Wheel3D('wheel3', [0.1, -0.1, -0.2]));
+    this.wheels.push(new Wheel3D('wheel4', [-0.1, -0.1, -0.2]));
   }
 
   // Método para actualizar las ruedas
@@ -63,23 +150,24 @@ class Object3D {
   }
 }
 
-class Wheel {
-  constructor(id, position=[0,0,0]) {
-    this.id = id;
-    this.position = position;
-    this.rotation = [0, 0, 0];
-    this.scale = [0.1, 0.1, 0.1];
-    this.color = [0, 0, 0, 1];
-    this.matrix = twgl.m4.create();
+// Clase Wheel para representar una rueda
+class Wheel3D extends Object3D {
+  constructor(id, position = [0, 0, 0]) {
+    super(id, position);
+    this.scale = [0.1, 0.1, 0.1];  // Escala de la rueda
   }
-  
+
+  // Actualiza las transformaciones de la rueda según la posición y rotación del coche
   updateTransforms(carPosition, carRotation) {
-    // Posición de la rueda es la posición del coche más la posición relativa
+    // Actualizamos la posición relativa de la rueda respecto al coche
     this.position = twgl.v3.add(carPosition, this.position);
-    this.rotation = carRotation;
-    
-    this.matrix = twgl.m4.translate(twgl.m4.create(), this.position);
-    this.matrix = twgl.m4.rotateY(this.matrix, this.rotation[1]);
+    this.rotation = carRotation;  // Asignamos la rotación del coche a la rueda
+
+    // Actualizamos la matriz de transformación de la rueda
+    this.matrix = twgl.m4.identity(this.matrix); // Resetear la matriz
+    this.matrix = twgl.m4.translate(this.matrix, this.position);  // Aplica la posición
+    this.matrix = twgl.m4.rotateY(this.matrix, this.rotation[1]); // Aplica la rotación en Y
+    this.matrix = twgl.m4.scale(this.matrix, this.scale); // Aplica la escala
   }
 }
 
@@ -96,11 +184,6 @@ const destinations = [];
 // Initialize WebGL-related variables
 let gl, programInfo;
 
-// Define the camera position
-//let cameraPosition = {x:20, y:30, z:10};
-//let cameraPosition = {x:14, y:3, z:15};
-let cameraPosition = {x:2, y:25, z:0};
-
 // Initialize the frame count
 let frameCount = 0;
 
@@ -113,6 +196,29 @@ const data = {
 let width = 0;
 let height = 0;
 
+// Define the camera position
+const settings = {
+  // Speed in degrees
+  rotationSpeed: {
+    x: 0,
+    y: 30,
+    z: 0,
+  },
+  cameraPosition: {
+    x: 15,
+    y: 30,
+    z: 0,
+  },
+  lightPosition: {
+    x: 20,
+    y: 30,
+    z: 20,
+  },
+  ambientColor: [0.5, 0.5, 0.5, 1.0],
+  diffuseColor: [0.5, 0.5, 0.5, 1.0],
+  specularColor: [0.5, 0.5, 0.5, 1.0],
+};
+
 // Main function to initialize and run the application
 async function main() {
   console.log("Initializing WebGL...");
@@ -124,11 +230,10 @@ async function main() {
 
   // Crear los objetos con bufferInfo y VAO para los diferentes tipos de objetos
   const { bufferInfo: carsBufferInfo, vao: carsVao } = createObjectDataAndVAO(dataGenerator.createCar, gl, programInfo);
-  const { bufferInfo: buildBufferInfo, vao: buildVao } = createObjectDataAndVAO(dataGenerator.createBuilding, gl, programInfo, 1, 1);
+  const { bufferInfo: buildBufferInfo, vao: buildVao } = createObjectDataAndVAO(dataGenerator.createBuilding, gl, programInfo, 1, 0);
   const { bufferInfo: roadBufferInfo, vao: roadVao } = createObjectDataAndVAO(dataGenerator.createRoad, gl, programInfo, 1);
   const { bufferInfo: destinationBufferInfo, vao: destinationVao } = createObjectDataAndVAO(dataGenerator.createDestination, gl, programInfo, 1);
-  const { bufferInfo: trafficLightBufferInfoR, vao: trafficLightVaoR } = createObjectDataAndVAO(dataGenerator.createRoad, gl, programInfo, 1, "red");
-  const { bufferInfo: trafficLightBufferInfoG, vao: trafficLightVaoG } = createObjectDataAndVAO(dataGenerator.createRoad, gl, programInfo, 1, "green");
+  const { bufferInfo: trafficLightBufferInfo, vao: trafficLightVao } = createObjectDataAndVAO(dataGenerator.createRoad, gl, programInfo, 1);
   const { bufferInfo: wheelBufferInfo, vao: wheelVao } = createObjectDataAndVAO(dataGenerator.createWheel, gl, programInfo);
 
   setupUI();
@@ -137,34 +242,14 @@ async function main() {
 
   await getEnvironment();
 
-  let rendering = {
-      "car": {
-          "vao": carsVao,
-          "bufferInfo": carsBufferInfo
-      },
-      "building": {
-          "vao": buildVao,
-          "bufferInfo": buildBufferInfo
-      },
-      "road": {
-          "vao": roadVao,
-          "bufferInfo": roadBufferInfo
-      },
-      "destination": { 
-          "vao": destinationVao,
-          "bufferInfo": destinationBufferInfo
-      },
-      "trafficLight": {
-          "vaoR": trafficLightVaoR,
-          "bufferInfoR": trafficLightBufferInfoR,
-          "vaoG": trafficLightVaoG,
-          "bufferInfoG": trafficLightBufferInfoG
-      },
-      "wheel": {
-          "vao": wheelVao,
-          "bufferInfo": wheelBufferInfo
-      }
-  }
+  const rendering = {
+    car: { bufferInfo: carsBufferInfo, vao: carsVao },
+    building: { bufferInfo: buildBufferInfo, vao: buildVao },
+    road: { bufferInfo: roadBufferInfo, vao: roadVao },
+    destination: { bufferInfo: destinationBufferInfo, vao: destinationVao },
+    trafficLight: { bufferInfo: trafficLightBufferInfo, vao: trafficLightVao },
+    wheel: { bufferInfo: wheelBufferInfo, vao: wheelVao }
+  };
 
   console.log("Starting render loop...");
   drawScene(gl, programInfo, rendering);
@@ -227,11 +312,11 @@ async function getAgents() {
         case "right":
           return [0, 0, 0];
         case "left":
-          return [0, 0, 0];
+          return [0, Math.PI, 0];
         case "up":
-          return [0, 0, 0];
+          return [0, Math.PI/2, 0];
         case "down":
-          return [0, 0, 0];
+          return [0, -Math.PI/2,0];
         default:
           return [0, 0, 0];
       }
@@ -247,16 +332,14 @@ async function getAgents() {
 
       // If the agent exists, update its position and rotation
       if (currentAgent) {
-        currentAgent.position = [agent.x, agent.y + 0.1, agent.z];
+        currentAgent.carMovesTo([agent.x, agent.y + 0.1, agent.z]);
         currentAgent.rotation = getRotationForOrientation(agent.orientation);
         currentAgent.updateWheels();
       } else {
         // If the agent doesn't exist, create a new one and add it to cars
-        const newAgent = new Object3D(agent.id, [agent.x, agent.y + 0.1, agent.z]);
-        newAgent.scale = [0.1, 0.2, 0.2];
+        const newAgent = new Car3D(agent.id, [agent.x, agent.y + 0.1, agent.z]);
         newAgent.color = createRandomColor();
         newAgent.rotation = getRotationForOrientation(agent.orientation);
-        newAgent.addWheels();
         cars.push(newAgent);
       }
       
@@ -275,13 +358,13 @@ async function getAgents() {
 
       // If the traffic light exists, update its position, orientation and state
       if (currentAgent) {
-        currentAgent.position = [agent.x, agent.y, agent.z];
+        currentAgent.position = [agent.x, agent.y +1, agent.z];
         currentAgent.orientation = agent.orientation;
         currentAgent.state = agent.state;
         currentAgent.color = getStateColor(agent.state);
       } else {
         // If the traffic light doesn't exist, create a new one and add it to trafficLights
-        const newLight = new Object3D(agent.id, [agent.x, agent.y, agent.z]);
+        const newLight = new TrafficLight3D(agent.id, [agent.x, agent.y +1, agent.z]);
         newLight.orientation = agent.orientation;
         newLight.state = agent.state;
         newLight.color = getStateColor(agent.state);
@@ -290,12 +373,7 @@ async function getAgents() {
     }
 
     function getStateColor(state) {
-      switch (state) {
-        case "red":
-          return [1, 0, 0, 1];
-        case "green":
-          return [0, 1, 0, 1];
-      }
+      return state === "red" ? [1, 0, 0, 1] : [0, 1, 0, 1];
     }
 
   } catch (error) {
@@ -323,19 +401,16 @@ async function getEnvironment() {
         for (const obstacle of obstaclesList) {
           switch (type) {
             case 'road':
-              const road = new Object3D(obstacle.id, [obstacle.x, obstacle.y, obstacle.z]);
-              road.direction = obstacle.direction; //para darle orientación a la carretera
-              road.color = [0, 0, 0, 1];
+              const road = new Road3D(obstacle.id, [obstacle.x, obstacle.y, obstacle.z]);
+              road.direction = obstacle.direction;
               roads.push(road);
               break;
             case 'building':
-              const building = new Object3D(obstacle.id, [obstacle.x, obstacle.y, obstacle.z]);
-              building.color = [0.5, 0.5, 0.5, 1];
+              const building = new Building3D(obstacle.id, [obstacle.x, obstacle.y, obstacle.z]);
               buildings.push(building);
               break;
             case 'destination':
-              const destination = new Object3D(obstacle.id, [obstacle.x, obstacle.y, obstacle.z]);
-              destination.color = [0.33, 1, 1, 1];
+              const destination = new Destination3D(obstacle.id, [obstacle.x, obstacle.y, obstacle.z]);
               destinations.push(destination);
               break;
             default:
@@ -395,21 +470,18 @@ async function drawScene(gl, programInfo, rendering) {
     //twgl.setBuffersAndAttributes(gl, programInfo, vao);
     //twgl.drawBufferInfo(gl, bufferInfo);
 
-
     // Use the program
     gl.useProgram(programInfo.program);
 
     // Set up the view-projection matrix
     const viewProjectionMatrix = setupWorldView(gl);
 
-    // Set the distance for rendering
-    const distance = 1
-
     // Draw the agents
-    drawCarsWithWheels(distance, rendering["car"], rendering["wheel"], viewProjectionMatrix)
-    drawLights(distance, rendering["trafficLight"], viewProjectionMatrix)
-    // Draw the obstacles
-    drawEnvironment(distance, rendering["building"], rendering["road"], rendering["destination"], viewProjectionMatrix)
+    drawObjects(cars, rendering.car.vao, rendering.car.bufferInfo, programInfo, viewProjectionMatrix);
+    drawObjects(buildings, rendering.building.vao, rendering.building.bufferInfo, programInfo, viewProjectionMatrix);
+    drawObjects(roads, rendering.road.vao, rendering.road.bufferInfo, programInfo, viewProjectionMatrix);
+    drawObjects(destinations, rendering.destination.vao, rendering.destination.bufferInfo, programInfo, viewProjectionMatrix);
+    drawObjects(trafficLights, rendering.trafficLight.vao, rendering.trafficLight.bufferInfo, programInfo, viewProjectionMatrix);
     
     // Increment the frame count
     frameCount++
@@ -424,73 +496,23 @@ async function drawScene(gl, programInfo, rendering) {
     requestAnimationFrame(() => drawScene(gl, programInfo, rendering));
 }
 
-/*
- * Draws the agents, objects and environment.
- */
-function drawCarsWithWheels(distance, carRender, wheelRender, viewProjectionMatrix){
-    // Bind the vertex array object for agents
-    gl.bindVertexArray(carRender["vao"]);
-
-    // Iterate over the agents
-    for(const car of cars){
-        car.updateWheels();
-        drawObject(car, carRender["bufferInfo"], programInfo, viewProjectionMatrix);
-        /*for (const wheel of car.wheels) {
-          gl.bindVertexArray(wheelRender["vao"]);
-          drawObject(wheel, wheelRender["bufferInfo"], programInfo, viewProjectionMatrix);
-        }*/
+function drawObjects(list, vao, bufferInfo, programInfo, viewProjectionMatrix) {
+  gl.bindVertexArray(vao);
+  for (const object of list) {
+    if (object.updatePosition) {
+      object.updatePosition();
     }
-}
+    object.updateMatrix(viewProjectionMatrix);
+    object.updateMatrix(viewProjectionMatrix);
 
-function drawLights(distance, trafficLightRender, viewProjectionMatrix){
-    // Bind the vertex array object for agents
-    for (const agent of trafficLights) {
-      if (agent.state == "red") {
-        gl.bindVertexArray(trafficLightRender["vaoR"]);
-        drawObject(agent, trafficLightRender["bufferInfoR"], programInfo, viewProjectionMatrix);
-      } else if (agent.state == "green") {
-        gl.bindVertexArray(trafficLightRender["vaoG"]);
-        drawObject(agent, trafficLightRender["bufferInfoG"], programInfo, viewProjectionMatrix);
-      }
-    }
-}
-
-function drawObject(object, bufferInfo, programInfo, viewProjectionMatrix) {
-  const cube_trans = twgl.v3.create(...object.position);
-  const cube_scale = twgl.v3.create(...object.scale);
-
-  object.matrix = twgl.m4.translate(viewProjectionMatrix, cube_trans);
-  object.matrix = twgl.m4.rotateX(object.matrix, object.rotation[0]);
-  object.matrix = twgl.m4.rotateY(object.matrix, object.rotation[1]);
-  object.matrix = twgl.m4.rotateZ(object.matrix, object.rotation[2]);
-  object.matrix = twgl.m4.scale(object.matrix, cube_scale);
-
-  const uniforms = {
-    u_matrix: object.matrix,
-    u_color: object.color
-  };
-
-  twgl.setUniforms(programInfo, uniforms);
-  twgl.drawBufferInfo(gl, bufferInfo);
-}
-
-function drawEnvironment(distance, renderBuild, renderRoad, renderDestination, viewProjectionMatrix) {
-  // Dibujar los edificios
-  gl.bindVertexArray(renderBuild["vao"]);
-  for (const build of buildings) {
-      drawObject(build, renderBuild["bufferInfo"], programInfo, viewProjectionMatrix);
-  }
-
-  // Dibujar las carreteras
-  gl.bindVertexArray(renderRoad["vao"]);
-  for (const road of roads) {
-      drawObject(road, renderRoad["bufferInfo"], programInfo, viewProjectionMatrix);
-  }
-
-  // Dibujar los destinos
-  gl.bindVertexArray(renderDestination["vao"]);
-  for (const destination of destinations) {
-      drawObject(destination, renderDestination["bufferInfo"], programInfo, viewProjectionMatrix);
+    let worldViewProjectionMatrix = twgl.m4.multiply(viewProjectionMatrix, object.matrix);
+    const uniforms = {
+      u_matrix: object.matrix,
+      u_color: object.color
+    };
+  
+    twgl.setUniforms(programInfo, uniforms);
+    twgl.drawBufferInfo(gl, bufferInfo);
   }
 }
 
@@ -506,9 +528,9 @@ function setupWorldView(gl) {
   const projectionMatrix = twgl.m4.perspective(fieldOfViewRadians, aspect, zNear, zFar);
 
   const camera = {
-      x: cameraPosition.x,
-      y: cameraPosition.y,
-      z: cameraPosition.z
+      x: settings.cameraPosition.x,
+      y: settings.cameraPosition.y,
+      z: settings.cameraPosition.z
   };
 
   const target = { x: width / 2, y: 0, z: height / 2 };
@@ -517,33 +539,52 @@ function setupWorldView(gl) {
   const cameraMatrix = twgl.m4.lookAt([camera.x + target.x, camera.y, camera.z + target.z], [target.x, target.y, target.z], up);
   const viewMatrix = twgl.m4.inverse(cameraMatrix);
 
-  // Calcular la dirección de la cámara
-  const cameraDirection = twgl.v3.subtract([target.x, target.y, target.z], [camera.x, camera.y, camera.z]);
-  twgl.v3.normalize(cameraDirection, cameraDirection);
-
   const viewProjectionMatrix = twgl.m4.multiply(projectionMatrix, viewMatrix);
-
   return viewProjectionMatrix;
 }
 
 /*
  * Sets up the user interface (UI) for the camera position.
  */
-const camera = {
-  position: { x: 2, y: 25, z: 0 }
-};
-
 function setupUI() {
+  // Create a new GUI instance
   const gui = new GUI();
-  const posFolder = gui.addFolder('Camera:');
+  gui.close();
 
-  posFolder.add(camera.position, 'x', -200, 200).onChange(updateCamera);
-  posFolder.add(camera.position, 'y', -200, 200).onChange(updateCamera);
-  posFolder.add(camera.position, 'z', -200, 200).onChange(updateCamera);
-}
+  // Create a folder for the camera position
+  const posFolder = gui.addFolder('Position:')
 
-function updateCamera() {
-  cameraPosition = camera.position;  // Actualiza la posición de la cámara
+  // Add a slider for the x-axis
+  posFolder.add(settings.cameraPosition, 'x', -100, 100)
+    .onChange(value => {
+      // Update the camera position when the slider value changes
+      settings.cameraPosition.x = value
+    });
+
+  // Add a slider for the y-axis
+  posFolder.add(settings.cameraPosition, 'y', -100, 100)
+    .onChange(value => {
+      // Update the camera position when the slider value changes
+      settings.cameraPosition.y = value
+    });
+
+  // Add a slider for the z-axis
+  posFolder.add(settings.cameraPosition, 'z', -100, 100)
+    .onChange(value => {
+      // Update the camera position when the slider value changes
+      settings.cameraPosition.z = value
+    });
+
+  const lightFolder = gui.addFolder('Light:')
+  lightFolder.add(settings.lightPosition, 'x', -20, 20)
+    .decimals(2)
+  lightFolder.add(settings.lightPosition, 'y', -20, 30)
+    .decimals(2)
+  lightFolder.add(settings.lightPosition, 'z', -20, 20)
+    .decimals(2)
+  lightFolder.addColor(settings, 'ambientColor')
+  lightFolder.addColor(settings, 'diffuseColor')
+  lightFolder.addColor(settings, 'specularColor')
 }
 
 main()
