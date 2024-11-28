@@ -55,7 +55,7 @@ class Destination3D extends Object3D {
 }
 
 class TrafficLight3D extends Object3D {
-  constructor(id, position, rotation, scale, color, shininess = 100) {
+  constructor(id, position, rotation, scale = [0.75, 0.75, 0.75], color, shininess = 100) {
     super(id, position, rotation, scale, color, shininess);
     this.orientation = undefined;
     this.state = "red";
@@ -192,14 +192,18 @@ async function main() {
   programInfo = twgl.createProgramInfo(gl, [vsGLSL, fsGLSL]);
 
   let carArray = await loadOBJ('./models/carcacha.obj');
+  let buildingArray = await loadOBJ('./models/cube_1.obj');
+  let roadArray = await loadOBJ('./models/cube_1.obj');
+  let destinationArray = await loadOBJ('./models/cube_1.obj');
+  let trafficLightArray = await loadOBJ('./models/cube_1.obj');
   let wheelArray = await loadOBJ('./models/rueda.obj');
-  let cubeArray = await loadOBJ('./models/cube_1.obj');
+
   // Crear los objetos con bufferInfo y VAO para los diferentes tipos de objetos
   const { bufferInfo: carsBufferInfo, vao: carsVao } = createObjectData(carArray, gl, programInfo);
-  const { bufferInfo: buildBufferInfo, vao: buildVao } = createObjectData(cubeArray, gl, programInfo);
-  const { bufferInfo: roadBufferInfo, vao: roadVao } = createObjectData(cubeArray, gl, programInfo);
-  const { bufferInfo: destinationBufferInfo, vao: destinationVao } = createObjectData(cubeArray, gl, programInfo);
-  const { bufferInfo: trafficLightBufferInfo, vao: trafficLightVao } = createObjectData(cubeArray, gl, programInfo);
+  const { bufferInfo: buildBufferInfo, vao: buildVao } = createObjectData(buildingArray, gl, programInfo);
+  const { bufferInfo: roadBufferInfo, vao: roadVao } = createObjectData(roadArray, gl, programInfo);
+  const { bufferInfo: destinationBufferInfo, vao: destinationVao } = createObjectData(destinationArray, gl, programInfo);
+  const { bufferInfo: trafficLightBufferInfo, vao: trafficLightVao } = createObjectData(trafficLightArray, gl, programInfo);
   const { bufferInfo: wheelBufferInfo, vao: wheelVao } = createObjectData(wheelArray, gl, programInfo);
 
   setupUI();
