@@ -1,6 +1,8 @@
 # MovilidadUrbana_Reto
 Repositorio para entrega del reto de la clase Modelación de sistemas multiagentes con gráficas computacionales (Gpo 301)
 
+Link al video de youtube [VideoFinal_MovilidadUrbana](https://youtu.be/EW02xKlUDeQ)
+
 ### Integrantes del equipo
 - [Eduardo Porto Morales - A01027893](https://github.com/Porto1090)
 - [Do Kyu Han - A01025119](https://github.com/dokyuhan)
