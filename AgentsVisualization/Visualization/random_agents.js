@@ -63,7 +63,7 @@ class TrafficLight3D extends Object3D {
 }
 
 class Car3D extends Object3D {
-  constructor(id, position, rotation, scale = [0.1, 0.2, 0.2]) {
+  constructor(id, position, rotation, scale = [0.2, 0.2, 0.2]) {
     super(id, position, rotation, scale);
     this.shininess = 100.0;
     this.wheels = [];
@@ -204,11 +204,11 @@ async function main() {
   
   programInfo = twgl.createProgramInfo(gl, [vsGLSL, fsGLSL]);
 
-  let carArray = await loadOBJ('./models/carcacha.obj');
-  let buildingArray = await loadOBJ('./models/cube_1.obj');
-  let roadArray = await loadOBJ('./models/cube_1.obj');
-  let destinationArray = await loadOBJ('./models/cube_1.obj');
-  let trafficLightArray = await loadOBJ('./models/cube_1.obj');
+  let carArray = await loadOBJ('./models/carModel.obj');
+  let buildingArray = await loadOBJ('./models/cube.obj');
+  let roadArray = await loadOBJ('./models/cube.obj');
+  let destinationArray = await loadOBJ('./models/cube.obj');
+  let trafficLightArray = await loadOBJ('./models/cube.obj');
   let wheelArray = await loadOBJ('./models/rueda.obj');
 
   // Crear los objetos con bufferInfo y VAO para los diferentes tipos de objetos
@@ -296,13 +296,13 @@ async function getAgents() {
     function getRotationForOrientation(orientation) {
       switch (orientation) {
         case "right":
-          return [0, 0, 0];
-        case "left":
-          return [0, Math.PI, 0];
-        case "up":
           return [0, Math.PI/2, 0];
-        case "down":
-          return [0, -Math.PI/2,0];
+          case "left":
+            return [0, -Math.PI/2,0];
+            case "up":
+              return [0, Math.PI, 0];
+              case "down":
+                return [0, 0, 0];
         default:
           return [0, 0, 0];
       }
@@ -318,12 +318,12 @@ async function getAgents() {
 
       // If the agent exists, update its position and rotation
       if (currentAgent) {
-        currentAgent.carMovesTo([agent.x, agent.y + 0.1, agent.z]);
+        currentAgent.carMovesTo([agent.x, agent.y + 0.25, agent.z]);
         currentAgent.rotation = getRotationForOrientation(agent.orientation);
         currentAgent.updateWheels();
       } else {
         // If the agent doesn't exist, create a new one and add it to cars
-        const newAgent = new Car3D(agent.id, [agent.x, agent.y + 0.1, agent.z]);
+        const newAgent = new Car3D(agent.id, [agent.x, agent.y + 0.25, agent.z]);
         newAgent.color = createRandomColor();
         newAgent.updateMaterial(newAgent.color);
         newAgent.rotation = getRotationForOrientation(agent.orientation);

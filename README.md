@@ -15,12 +15,9 @@ En este caso, vamos a utilizar [Mesa](https://mesa.readthedocs.io/stable/) para 
 - El servidor de simulación gestiona y ejecuta los agentes de la simulación por medio de Mesa, proporcionando los datos relevantes a través de una API RESTful construida con Flask.
 - El servidor de visualización toma estos datos y los presenta en una interfaz gráfica interactiva 3D usando WebGL. Para la gestión y despliegue del cliente en el navegador, se utiliza Vite como servidor de desarrollo.
 
-### Instalar Dependencias
+## Instalar Dependencias y hacer funcionar la aplicación en el entorno local
 
-Para comenzar a trabajar con el proyecto, primero necesitas instalar las dependencias necesarias tanto para el backend como para el frontend.
-Backend (Servidor Flask)
-
-#### Clonar este repositorio y Hacer funcionar la aplicación
+### Clonar este repositorio
 
 ```bash
 https://github.com/Porto1090/MovilidadUrbana_Reto.git
@@ -67,7 +64,7 @@ https://github.com/Porto1090/MovilidadUrbana_Reto.git
   python agents_server.py
   ```
 
-> El script comenzará a escuchar en el puerto 8585, y podrás acceder a la API de simulación y sus endpoitns en [http://localhost:8585](http://localhost:8585).
+> El script comenzará a escuchar en el puerto 8585, y podrás acceder a la API de simulación y sus endpoitns en [http://localhost:8585/](http://localhost:8585/).
 
 #### 2. Servidor de Visualización (Frontend)
 
